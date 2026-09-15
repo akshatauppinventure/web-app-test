@@ -47,6 +47,8 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Database (`app/db.py`): `Database.user_session(sub)` opens one transaction and sets `app.user_id` transaction-locally; all user-data queries go through it. Never accept an owner id from the client.
 - Migrations are hand-written Alembic files under `backend/alembic/versions/` (no autogenerate). Every user-data table gets `ENABLE` + `FORCE ROW LEVEL SECURITY`, a policy on `current_setting('app.user_id', true)` and explicit grants to `app_rw`. Migrations connect as `app_migrator`; `env.py` does `SET ROLE app_owner`.
 - Postgres roles/config live in `infra/postgres/` (see its README). The `db` network subnet is fixed at `172.28.1.0/24`.
+- Auth (`app/auth/`): `current_user` validates the bearer JWT (alg allowlist `RS256`/`ES256`, `iss`, `aud=api`, `azp=web-bff`, `typ=Bearer`, `exp`/`nbf`/`iat` with 30 s leeway, non-empty `sub`); `require_roles("user")` guards every `/v1` route. JWKS is cached in `JWKSClient`; unknown `kid` refreshes at most once per 60 s. OIDC settings (`OIDC_ISSUER`, `OIDC_JWKS_URL`, …) are env vars, not secrets.
+- Test tokens come from `tests/keys.py` (RSA pair generated at import, fake JWKS served through `respx`). Add a negative test for every new claim check.
 
 ## Task status
 
@@ -55,4 +57,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T00 Repo skeleton, ADRs accepted | done | initial commit |
 | T01 Backend scaffold | done | #1 |
 | T02 DB schema, roles, migrations, RLS | done | #2 |
-| T03–T25 | not started | — |
+| T03 JWT validation and hello endpoints | done | #3 |
+| T04–T25 | not started | — |

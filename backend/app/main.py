@@ -3,10 +3,13 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx
 import structlog
 from fastapi import FastAPI
 
 from app.api import health
+from app.api import v1 as api_v1
+from app.auth.jwks import JWKSClient
 from app.config import Settings, load_settings
 from app.db import Database
 from app.logging import configure_logging
@@ -22,9 +25,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log.info("startup", environment=settings.environment)
         db = Database(settings.database_url.get_secret_value()) if settings.database_url else None
         app.state.db = db
+        http = httpx.AsyncClient(timeout=5.0)
+        app.state.jwks = JWKSClient(
+            settings.oidc_jwks_url, http, min_refresh_interval=settings.jwks_min_refresh_seconds
+        )
         try:
             yield
         finally:
+            await http.aclose()
             if db is not None:
                 await db.dispose()
             log.info("shutdown")
@@ -40,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.include_router(health.router)
+    app.include_router(api_v1.router)
     return app
 
 
