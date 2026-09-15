@@ -27,3 +27,12 @@ Configuration: environment variables (`ENVIRONMENT`, `LOG_LEVEL`, `LOG_JSON`) an
 | `GET /v1/hello` | bearer, role `user` | records the visit; `{"message", "visit_count", "last_visit"}` |
 
 Token validation settings: `OIDC_ISSUER`, `OIDC_JWKS_URL`, `OIDC_AUDIENCE` (`api`), `OIDC_AUTHORIZED_PARTY` (`web-bff`). For the local stack (T09) set `OIDC_ISSUER=http://localhost:8080/auth/realms/app`.
+
+## Container image
+
+```bash
+make backend-image        # docker build with GIT_SHA/BUILD_DATE labels
+make backend-image-test   # hardening checks (scripts/test/backend-image.sh)
+```
+
+Runtime: uid 10001, `/app/.venv` + `alembic/` only, no uv/pip; `CMD uvicorn app.main:app --proxy-headers`. Set `FORWARDED_ALLOW_IPS` to the proxy's WireGuard IP. The same image runs migrations: `docker run --rm -e DATABASE_URL=… <image> alembic upgrade head`.

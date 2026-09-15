@@ -1,0 +1,7 @@
+# hadolint configuration (T04). Warnings fail the build; digests are required by ADR-0020.
+failure-threshold: warning
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+  - quay.io
+ignored: []
