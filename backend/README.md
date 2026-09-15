@@ -16,3 +16,14 @@ Configuration: environment variables (`ENVIRONMENT`, `LOG_LEVEL`, `LOG_JSON`) an
 - Start a test database: `make test-db-up` (Postgres 18.6, roles from `infra/postgres/initdb`).
 - Migrations: `DATABASE_URL=postgresql+psycopg://app_migrator:<pw>@host:5432/app uv run alembic upgrade head`.
 - The runtime role is `app_rw`; RLS is forced on every user-data table (`tests/test_rls.py`).
+
+## API
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /healthz` | none | liveness |
+| `GET /readyz` | none | readiness (DB round-trip) |
+| `GET /v1/me` | bearer, role `user` | identity from the token |
+| `GET /v1/hello` | bearer, role `user` | records the visit; `{"message", "visit_count", "last_visit"}` |
+
+Token validation settings: `OIDC_ISSUER`, `OIDC_JWKS_URL`, `OIDC_AUDIENCE` (`api`), `OIDC_AUTHORIZED_PARTY` (`web-bff`). For the local stack (T09) set `OIDC_ISSUER=http://localhost:8080/auth/realms/app`.
