@@ -32,9 +32,21 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 
 Targets are added to the `Makefile` as tasks land; `make help` lists them. Until then a stub target fails with the task id that will implement it.
 
+- `make backend-check` — locked sync, ruff lint + format check, pyright (strict), pytest. Run before every backend commit.
+- `make backend-run` — uvicorn on :8000 with `/docs` enabled (`ENVIRONMENT=local`).
+
+## Backend conventions (`backend/`)
+
+- App factory `create_app(settings)` in `app/main.py`; tests build apps with explicit `Settings`, never from the environment.
+- `Settings` (`app/config.py`) reads env vars and secret files from `SECRETS_DIR` (default `/run/secrets`) via `load_settings()`. Secrets are `SecretStr`; nothing secret has a default.
+- Logging is structlog JSON; `redact_sensitive` blanks keys like `authorization`, `cookie`, `*token*`, `password`. Never log request bodies or tokens.
+- `/docs`, `/redoc`, `/openapi.json` exist only when `ENVIRONMENT=local`; `/healthz` and `/readyz` are unauthenticated and excluded from the schema.
+- pytest runs with `filterwarnings = error` and `asyncio_mode = auto`; tests are a package (`tests/__init__.py`).
+
 ## Task status
 
 | Task | Status | PR |
 |---|---|---|
 | T00 Repo skeleton, ADRs accepted | done | initial commit |
-| T01–T25 | not started | — |
+| T01 Backend scaffold | done | #1 |
+| T02–T25 | not started | — |
