@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 
-import { NEXT_VERSION_FLOOR, satisfiesFloor } from "../scripts/check-next-version.mts";
+import { NEXT_VERSION_FLOOR, satisfiesFloor } from "../scripts/check-next-version.mjs";
 
 const require = createRequire(import.meta.url);
 
