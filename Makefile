@@ -18,11 +18,17 @@ backend-migrate: ## Backend: alembic upgrade head (needs DATABASE_URL for app_mi
 backend-run: ## Backend: run uvicorn locally with docs enabled
 	cd backend && ENVIRONMENT=local uv run uvicorn app.main:app --port 8000 --reload
 
-.PHONY: backend-image backend-image-test
-backend-image: ## Build the backend image (T04)
-	$(call not_yet,backend-image,T04)
-backend-image-test: ## Run hardening checks against the backend image (T04)
-	$(call not_yet,backend-image-test,T04)
+GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+BACKEND_IMAGE ?= web-app-test/backend:dev
+
+.PHONY: backend-image backend-image-test hadolint
+hadolint: ## Lint every Dockerfile
+	hadolint --config .hadolint.yaml $$(git ls-files '*Dockerfile*')
+backend-image: ## Build the backend image locally (tag $(BACKEND_IMAGE))
+	docker build --pull=false -t $(BACKEND_IMAGE) --build-arg GIT_SHA=$(GIT_SHA) --build-arg BUILD_DATE=$(BUILD_DATE) backend/
+backend-image-test: ## Hardening checks against the backend image (non-root, read-only, no uv, healthz, labels)
+	scripts/test/backend-image.sh $(BACKEND_IMAGE)
 
 .PHONY: frontend-check
 frontend-check: ## Frontend: lint, typecheck, tests, build (T06)

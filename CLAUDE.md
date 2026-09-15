@@ -36,6 +36,14 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make backend-run` — uvicorn on :8000 with `/docs` enabled (`ENVIRONMENT=local`).
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
+- `make backend-image` / `make backend-image-test` — build `web-app-test/backend:dev` and run `scripts/test/backend-image.sh` (uid 10001, read-only FS, no uv/pip, `/healthz`, OCI labels, HEALTHCHECK). `make hadolint` lints all Dockerfiles with `.hadolint.yaml` (warnings fail).
+
+## Container image conventions
+
+- Multi-stage; the runtime stage has no package manager for the language (no uv, no pip), runs as a fixed non-root UID, and works with `--read-only --cap-drop ALL --security-opt no-new-privileges`. Writable paths are `tmpfs`.
+- `HEALTHCHECK` uses tools already in the image (python for the backend); no curl/wget added.
+- OCI labels `source`, `revision`, `created` come from build args `GIT_SHA`, `BUILD_DATE`.
+- Base images: exact tag **and** digest (multi-arch index digest, so the same line builds on arm64 locally and amd64 in CI).
 
 ## Backend conventions (`backend/`)
 
@@ -58,4 +66,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T01 Backend scaffold | done | #1 |
 | T02 DB schema, roles, migrations, RLS | done | #2 |
 | T03 JWT validation and hello endpoints | done | #3 |
-| T04–T25 | not started | — |
+| T04 Backend container image | done | #4 |
+| T05–T25 | not started | — |
