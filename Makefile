@@ -10,9 +10,11 @@ endef
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-24s %s\n", $$1, $$2}'
 
-.PHONY: backend-check
-backend-check: ## Backend: lint, format check, typecheck, tests (T01)
-	$(call not_yet,backend-check,T01)
+.PHONY: backend-check backend-run
+backend-check: ## Backend: locked sync, ruff, pyright, pytest
+	cd backend && uv sync --locked && uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest -q
+backend-run: ## Backend: run uvicorn locally with docs enabled
+	cd backend && ENVIRONMENT=local uv run uvicorn app.main:app --port 8000 --reload
 
 .PHONY: backend-image backend-image-test
 backend-image: ## Build the backend image (T04)
