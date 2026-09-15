@@ -1,0 +1,47 @@
+# --- local secrets (never commit) ---
+.dev-secrets/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!**/tests/keys.py
+*.age
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+# decrypted SOPS output
+*.dec.yaml
+*.dec.json
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+
+# --- node ---
+node_modules/
+.next/
+out/
+.pnpm-store/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+
+# --- editors / os ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
