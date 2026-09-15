@@ -36,7 +36,9 @@ JSON
 
 Verify: `gh api repos/akshatauppinventure/web-app-test/rulesets --jq '.[].name'` lists `main-protection`, and a direct `git push origin main` is rejected.
 
-> **Plan note:** rulesets on **private** repositories are enforced only on GitHub Pro/Team/Enterprise. On a Free personal plan the ruleset is stored but reported as not enforced. If `gh api` returns an enforcement warning, either upgrade the plan or accept "process-only" protection for the POC and record that in this runbook.
+> **Result on 2026-09-15:** the API returned `403 Upgrade to GitHub Pro or make this repository public to enable this feature.` Rulesets (and classic branch protection) are **not available on private repositories under the GitHub Free personal plan**.
+>
+> **Owner decision needed (P12):** either (a) upgrade the account to **GitHub Pro** (about $4/month) and re-run the command above, or (b) accept *process-only* protection for the POC (all changes still go through PRs by convention; `main` is technically pushable). Until decided, (b) is in effect and is a documented deviation from ADR-0017 §1.
 
 ## 2. Security features
 
@@ -51,9 +53,11 @@ gh api -X PATCH repos/akshatauppinventure/web-app-test --input - <<'JSON'
 JSON
 ```
 
-If the second call fails with `422`/`403`, Secret Protection is not licensed for this private repo. Compensating control: `gitleaks` runs in CI (T11) and locally via the pre-commit hook; keep push protection on the list to enable when the plan allows.
+**Result on 2026-09-15:** Dependabot alerts + dependency graph: enabled. Secret scanning: `422 Secret scanning is not available for this repository` (needs GitHub Secret Protection, a paid add-on, on private repos). Compensating control: `gitleaks` runs in CI (T11); re-run the PATCH if the plan changes.
 
-Also in the web UI (`Settings → General`): disable **Wiki** and **Projects** if unused; set **Allow merge commits** off (squash/rebase only); enable **Automatically delete head branches**.
+Applied on 2026-09-15 via API: merge commits off (squash/rebase only), auto-delete head branches on, wiki and projects off.
+
+
 
 ## 3. Packages (P3, T12)
 

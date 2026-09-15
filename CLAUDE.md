@@ -4,7 +4,7 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 
 ## Fixed facts
 
-- GitHub repo: `akshatauppinventure/web-app-test` (private). Default branch `main`, protected by ruleset `main-protection`.
+- GitHub repo: `akshatauppinventure/web-app-test` (private). Default branch `main`. Rulesets are unavailable on this private repo under the Free plan (owner decision P12 pending); protection is process-only: never push to `main` directly, always PR.
 - POC hostname: `test-vinayak.duckdns.org` (DuckDNS, Let's Encrypt HTTP-01). No custom domain, Cloudflare or Apple login in the POC.
 - Hosting target: UpCloud `us-nyc1`, two Ubuntu 26.04 VPS: A "edge" (Traefik, CrowdSec, frontend) and B "core" (Keycloak, backend, PostgreSQL, Portainer Server). WireGuard `10.10.0.1` (A) / `10.10.0.2` (B).
 - Owner-only prerequisites (accounts, tokens, purchases) are listed in `PLAN.md` § "Owner prerequisites". Never fake them; stop and report when one is missing.
