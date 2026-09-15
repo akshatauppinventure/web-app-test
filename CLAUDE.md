@@ -34,6 +34,8 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 
 - `make backend-check` — locked sync, ruff lint + format check, pyright (strict), pytest. Run before every backend commit.
 - `make backend-run` — uvicorn on :8000 with `/docs` enabled (`ENVIRONMENT=local`).
+- `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
+- `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 
 ## Backend conventions (`backend/`)
 
@@ -41,7 +43,10 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `Settings` (`app/config.py`) reads env vars and secret files from `SECRETS_DIR` (default `/run/secrets`) via `load_settings()`. Secrets are `SecretStr`; nothing secret has a default.
 - Logging is structlog JSON; `redact_sensitive` blanks keys like `authorization`, `cookie`, `*token*`, `password`. Never log request bodies or tokens.
 - `/docs`, `/redoc`, `/openapi.json` exist only when `ENVIRONMENT=local`; `/healthz` and `/readyz` are unauthenticated and excluded from the schema.
-- pytest runs with `filterwarnings = error` and `asyncio_mode = auto`; tests are a package (`tests/__init__.py`).
+- pytest runs with `filterwarnings = error` and `asyncio_mode = auto`; tests are a package (`tests/__init__.py`). DB fixtures live in `tests/db_fixtures.py` (registered as a pytest plugin); mark DB tests with `requires_postgres`.
+- Database (`app/db.py`): `Database.user_session(sub)` opens one transaction and sets `app.user_id` transaction-locally; all user-data queries go through it. Never accept an owner id from the client.
+- Migrations are hand-written Alembic files under `backend/alembic/versions/` (no autogenerate). Every user-data table gets `ENABLE` + `FORCE ROW LEVEL SECURITY`, a policy on `current_setting('app.user_id', true)` and explicit grants to `app_rw`. Migrations connect as `app_migrator`; `env.py` does `SET ROLE app_owner`.
+- Postgres roles/config live in `infra/postgres/` (see its README). The `db` network subnet is fixed at `172.28.1.0/24`.
 
 ## Task status
 
@@ -49,4 +54,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 |---|---|---|
 | T00 Repo skeleton, ADRs accepted | done | initial commit |
 | T01 Backend scaffold | done | #1 |
-| T02–T25 | not started | — |
+| T02 DB schema, roles, migrations, RLS | done | #2 |
+| T03–T25 | not started | — |

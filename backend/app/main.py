@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.api import health
 from app.config import Settings, load_settings
+from app.db import Database
 from app.logging import configure_logging
 
 
@@ -17,10 +18,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     log = structlog.get_logger("app")
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         log.info("startup", environment=settings.environment)
-        yield
-        log.info("shutdown")
+        db = Database(settings.database_url.get_secret_value()) if settings.database_url else None
+        app.state.db = db
+        try:
+            yield
+        finally:
+            if db is not None:
+                await db.dispose()
+            log.info("shutdown")
 
     docs = settings.docs_enabled
     app = FastAPI(

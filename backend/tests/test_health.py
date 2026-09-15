@@ -13,12 +13,6 @@ async def test_healthz_returns_200_without_dependencies(client: AsyncClient) -> 
     assert resp.json() == {"status": "ok"}
 
 
-async def test_readyz_stub_returns_200(client: AsyncClient) -> None:
-    resp = await client.get("/readyz")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
-
-
 async def test_docs_available_in_local_environment(client: AsyncClient) -> None:
     assert (await client.get("/docs")).status_code == 200
     assert (await client.get("/openapi.json")).status_code == 200

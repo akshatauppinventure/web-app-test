@@ -8,6 +8,8 @@ from httpx import ASGITransport, AsyncClient
 from app.config import Settings
 from app.main import create_app
 
+pytest_plugins = ["tests.db_fixtures"]
+
 
 def make_settings(**overrides: object) -> Settings:
     """Build Settings for tests without reading the environment or /run/secrets."""

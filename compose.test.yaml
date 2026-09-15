@@ -1,0 +1,64 @@
+# Throwaway PostgreSQL 18 for backend integration/RLS tests (T02) and Keycloak smoke tests (T05).
+# Usage: docker compose -f compose.test.yaml up -d --wait ; ... ; docker compose -f compose.test.yaml down -v
+name: web-app-test-test
+
+services:
+  postgres:
+    image: postgres:18.6-trixie@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      APP_MIGRATOR_PASSWORD_FILE: /run/secrets/app_migrator_password
+      APP_RW_PASSWORD_FILE: /run/secrets/app_rw_password
+      KEYCLOAK_PASSWORD_FILE: /run/secrets/keycloak_db_password
+    secrets:
+      - postgres_password
+      - app_migrator_password
+      - app_rw_password
+      - keycloak_db_password
+    volumes:
+      - ./infra/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - pgdata-test:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:55432:5432"
+    networks:
+      - db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    mem_limit: 512m
+    pids_limit: 256
+
+secrets:
+  postgres_password:
+    file: ./scripts/test/pg-secrets/postgres_password
+  app_migrator_password:
+    file: ./scripts/test/pg-secrets/app_migrator_password
+  app_rw_password:
+    file: ./scripts/test/pg-secrets/app_rw_password
+  keycloak_db_password:
+    file: ./scripts/test/pg-secrets/keycloak_db_password
+
+volumes:
+  pgdata-test:
+
+networks:
+  db:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24
