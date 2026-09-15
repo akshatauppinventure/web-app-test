@@ -30,9 +30,11 @@ backend-image: ## Build the backend image locally (tag $(BACKEND_IMAGE))
 backend-image-test: ## Hardening checks against the backend image (non-root, read-only, no uv, healthz, labels)
 	scripts/test/backend-image.sh $(BACKEND_IMAGE)
 
-.PHONY: frontend-check
-frontend-check: ## Frontend: lint, typecheck, tests, build (T06)
-	$(call not_yet,frontend-check,T06)
+.PHONY: frontend-check frontend-run
+frontend-check: ## Frontend: frozen install, next-version guard, eslint, tsc, vitest, next build
+	cd frontend && pnpm install --frozen-lockfile && pnpm check
+frontend-run: ## Frontend: next dev on :3000
+	cd frontend && pnpm dev
 
 .PHONY: frontend-image frontend-image-test
 frontend-image: ## Build the frontend image (T08)
