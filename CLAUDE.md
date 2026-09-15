@@ -24,7 +24,7 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 | Area | Tools | Notes |
 |---|---|---|
 | Backend | `uv`, Python 3.14, `ruff`, `pyright`, `pytest` | `cd backend && uv sync --locked` |
-| Frontend | `pnpm` (exact version in `package.json`), Node 24 | `cd frontend && pnpm install --frozen-lockfile` |
+| Frontend | `pnpm` 12 (exact version in `package.json`; `npm i -g pnpm@<ver>` if corepack fails), Node 24 | `cd frontend && pnpm install --frozen-lockfile` |
 | Containers | Docker 29 (arm64 locally; CI builds `linux/amd64`), `hadolint` | Test images with `--read-only --cap-drop ALL --security-opt no-new-privileges` |
 | Infra | `shellcheck`, `docker compose config`, `sops`, `age`, `tofu` | Installed as the corresponding tasks land |
 
@@ -36,6 +36,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make backend-run` — uvicorn on :8000 with `/docs` enabled (`ENVIRONMENT=local`).
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
+- `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
 - `make backend-image` / `make backend-image-test` — build `web-app-test/backend:dev` and run `scripts/test/backend-image.sh` (uid 10001, read-only FS, no uv/pip, `/healthz`, OCI labels, HEALTHCHECK). `make hadolint` lints all Dockerfiles with `.hadolint.yaml` (warnings fail).
 
 ## Container image conventions
@@ -44,6 +45,14 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `HEALTHCHECK` uses tools already in the image (python for the backend); no curl/wget added.
 - OCI labels `source`, `revision`, `created` come from build args `GIT_SHA`, `BUILD_DATE`.
 - Base images: exact tag **and** digest (multi-arch index digest, so the same line builds on arm64 locally and amd64 in CI).
+
+## Frontend conventions (`frontend/`)
+
+- pnpm 12 with `pnpm-workspace.yaml` supply-chain settings: `minimumReleaseAge: 4320` (3 days) blocks brand-new versions, so pick the newest version older than 3 days when pinning (`npm view <pkg> time --json`). Lifecycle scripts run only for `onlyBuiltDependencies`; anything else that needs a build goes in `ignoredBuiltDependencies` with a comment, never disable `strictDepBuilds`.
+- ESLint stays on the newest 9.x until eslint-config-next's plugins support ESLint 10 (eslint-plugin-react 7.37 crashes on 10).
+- Version floor for `next` is `16.3.3` (`scripts/check-next-version.mts`, tested); CI fails below it (T11).
+- App Router only, TypeScript strict with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. Server-only code imports `server-only` (T07). No client-side token handling, ever.
+- Tests: vitest (node environment) in `frontend/tests/*.test.ts`; test route handlers by importing and calling them.
 
 ## Backend conventions (`backend/`)
 
@@ -67,4 +76,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T02 DB schema, roles, migrations, RLS | done | #2 |
 | T03 JWT validation and hello endpoints | done | #3 |
 | T04 Backend container image | done | #4 |
-| T05–T25 | not started | — |
+| T06 Frontend scaffold | done | #5 |
+| T05, T07–T25 | not started | — |

@@ -1,0 +1,14 @@
+# pnpm settings (pnpm >= 10 reads these here). Supply-chain controls per ADR-0019:
+# - lifecycle scripts run only for the allowlisted packages
+# - packages must be at least 3 days old (4320 min) before they are installed
+packages:
+  - "."
+onlyBuiltDependencies:
+  - sharp
+# unrs-resolver ships prebuilt optional binaries; its postinstall is only a fallback.
+ignoredBuiltDependencies:
+  - unrs-resolver
+minimumReleaseAge: 4320
+strictDepBuilds: true
+allowBuilds:
+  unrs-resolver: set this to true or false
