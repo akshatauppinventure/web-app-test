@@ -1,7 +1,9 @@
 """Liveness and readiness endpoints (ADR-0008 §5)."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict
+
+from app.db import Database
 
 router = APIRouter(tags=["health"])
 
@@ -18,6 +20,10 @@ async def healthz() -> Health:
 
 
 @router.get("/readyz", include_in_schema=False)
-async def readyz() -> Health:
-    """Readiness stub; T02 adds the database check."""
-    return Health(status="ok")
+async def readyz(request: Request, response: Response) -> Health:
+    """Readiness: the database must answer. 503 when unconfigured or unreachable."""
+    db: Database | None = getattr(request.app.state, "db", None)
+    if db is not None and await db.ping():
+        return Health(status="ok")
+    response.status_code = 503
+    return Health(status="unavailable")
