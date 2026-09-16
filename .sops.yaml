@@ -1,0 +1,10 @@
+# SOPS creation rules (ADR-0016). Encrypt only to the admins' age public keys; servers hold no keys.
+# Owner prerequisite P5: replace the placeholder with the output of `age-keygen` ("Public key: age1...").
+# Add a second admin by appending another recipient (comma-separated) and re-running `sops updatekeys`.
+creation_rules:
+  - path_regex: ^infra/secrets/edge\.sops\.yaml$
+    age: "age1REPLACE_WITH_OWNER_PUBLIC_KEY_P5"
+  - path_regex: ^infra/secrets/core\.sops\.yaml$
+    age: "age1REPLACE_WITH_OWNER_PUBLIC_KEY_P5"
+  - path_regex: ^infra/tofu/upcloud/(terraform\.tfvars|.*\.tfstate(\.backup)?)\.sops$
+    age: "age1REPLACE_WITH_OWNER_PUBLIC_KEY_P5"
