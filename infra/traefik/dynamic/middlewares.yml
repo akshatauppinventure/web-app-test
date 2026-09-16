@@ -1,0 +1,97 @@
+# Middlewares (ADR-0012 §7, ADR-0013). Rate limits are per client IP; tuned during the POC.
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: false
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        permissionsPolicy: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+        customResponseHeaders:
+          Server: ""
+          X-Powered-By: ""
+          Cross-Origin-Opener-Policy: same-origin
+          Cross-Origin-Resource-Policy: same-origin
+
+    ratelimit-app:
+      rateLimit:
+        average: 50
+        period: 1s
+        burst: 100
+        sourceCriterion:
+          ipStrategy:
+            depth: 0
+
+    ratelimit-auth:
+      rateLimit:
+        average: 10
+        period: 1s
+        burst: 20
+        sourceCriterion:
+          ipStrategy:
+            depth: 0
+
+    inflight:
+      inFlightReq:
+        amount: 100
+        sourceCriterion:
+          ipStrategy:
+            depth: 0
+
+    body-limit:
+      buffering:
+        maxRequestBodyBytes: 1048576      # 1 MiB
+        memRequestBodyBytes: 262144
+        retryExpression: ""
+
+    body-limit-auth:
+      buffering:
+        maxRequestBodyBytes: 262144       # 256 KiB for Keycloak paths
+        memRequestBodyBytes: 65536
+        retryExpression: ""
+
+    compress:
+      compress:
+        minResponseBodyBytes: 1024
+        excludedContentTypes:
+          - text/event-stream
+
+    # CrowdSec bouncer (ADR-0013): stream mode, AppSec on, fail-open for the POC.
+    # crowdsec_bouncer_key is a Compose secret; the LAPI/AppSec hosts live on the edge network (T15).
+    crowdsec:
+      plugin:
+        crowdsec:
+          enabled: true
+          logLevel: INFO
+          crowdsecMode: stream
+          updateIntervalSeconds: 60
+          updateMaxFailure: -1        # never block because LAPI is unreachable (fail-open, ADR-0013 §4)
+          defaultDecisionSeconds: 60
+          crowdsecLapiScheme: http
+          crowdsecLapiHost: crowdsec:8080
+          crowdsecLapiKeyFile: /run/secrets/crowdsec_bouncer_key
+          crowdsecAppsecEnabled: true
+          crowdsecAppsecHost: crowdsec:7422
+          crowdsecAppsecFailureBlock: false
+          crowdsecAppsecUnreachableBlock: false
+          crowdsecAppsecBodyLimit: 1048576
+          httpTimeoutSeconds: 10
+          clientTrustedIPs: []
+          forwardedHeadersTrustedIPs: []
+          banHTTPCode: 403
+
+    # 404 for anything that must not be reachable (Keycloak admin/console, unknown hosts).
+    # noop@internal answers 418; the errors middleware rewrites it to 404 with the frontend's own
+    # not-found page so scanners see nothing useful.
+    not-found:
+      errors:
+        status:
+          - "418"
+        service: frontend
+        query: "/__not_found__"
+        statusRewrites:
+          "418": 404

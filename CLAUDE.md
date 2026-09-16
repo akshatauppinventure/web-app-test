@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make traefik-test` — Traefik image + whoami upstreams on `127.0.0.1:18443` and `scripts/test/traefik-routes.sh` (routing, `/auth/admin` 404, headers, redirect, body limits, 429s, sniStrict). Run after any change under `infra/traefik/`.
 - `make keycloak-image` / `make keycloak-smoke` — build the Keycloak image and run the smoke test against Postgres + Keycloak on `127.0.0.1:18080` (compose profile `keycloak`). Run the smoke test for every Keycloak or extension bump.
 - `make dev-up` / `make dev-smoke` / `make dev-logs` / `make dev-down` / `make dev-reset` — local full stack from `compose.dev.yaml` (`docs/dev-setup.md`). `dev-smoke` runs the health checks and a real sign-in/sign-out. Run it after any change to auth, realm, compose or images.
 - `make frontend-image` / `make frontend-image-test` — build `web-app-test/frontend:dev` and run `scripts/test/frontend-image.sh` (uid 1000, read-only FS with tmpfs `/app/.next/cache`, no npm, `/api/healthz`, no `X-Powered-By`, labels, HEALTHCHECK).
@@ -73,6 +74,14 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Build-time options (`db`, `http-relative-path`, `health`, `metrics`, `vault`) must be passed to `kc.sh build`; runtime env vars cannot change them on an `--optimized` image.
 - Realm-import gotchas learned in T05: `defaultRole.composites` is ignored (define `default-roles-app` inside `roles.realm`); composites can only reference roles defined in the same file (built-ins like `uma_authorization` don't exist yet); users created via `partialImport` do not get default roles, users created via `POST /admin/realms/app/users` do.
 - Third-party jars: record version, URL, sha256 and upstream sha512 in `checksums.txt`; the Dockerfile uses `ADD --checksum=sha256:…`; `scripts/verify-checksums.sh` cross-checks both.
+
+## Traefik conventions (`infra/traefik/`)
+
+- Static config is a file; env-dependent values go through `__PLACEHOLDER__`s rendered by the entrypoint. Dynamic files may use `{{ env "NAME" }}` Go templates.
+- Traefik listens on 8080/8443 as uid 65532 and the stack publishes 80→8080, 443→8443, so no `NET_BIND_SERVICE` is needed (deviation from ADR-0012 §8 in the safe direction; the HTTP→HTTPS redirect targets `:443` explicitly).
+- Only `/auth/realms/*` and `/auth/resources/*` reach Keycloak; every other `/auth*` path and every unknown Host returns the frontend's 404 page via `noop@internal` (418) + `errors` middleware `statusRewrites`.
+- `sniStrict: true` means the test stack needs `scripts/test/traefik-test-certs.sh` (self-signed, gitignored under `.traefik-test/`).
+- CrowdSec plugin runs fail-open (`updateMaxFailure: -1`, AppSec failure/unreachable not blocking) for the POC.
 
 ## Backend conventions (`backend/`)
 

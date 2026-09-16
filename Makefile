@@ -54,6 +54,16 @@ test-db-up: ## Start the throwaway Postgres for integration tests (127.0.0.1:554
 test-db-down: ## Stop the throwaway test Postgres (+ Keycloak) and delete volumes
 	docker compose -f compose.test.yaml --profile keycloak down -v
 
+.PHONY: traefik-image traefik-test traefik-verify-plugins
+traefik-image: ## Build the Traefik image (web-app-test/traefik:dev)
+	docker compose -f compose.traefik-test.yaml build traefik
+traefik-test: ## Start the Traefik test stack (whoami upstreams, 127.0.0.1:18443) and run scripts/test/traefik-routes.sh
+	scripts/test/traefik-test-certs.sh
+	docker compose -f compose.traefik-test.yaml up -d --build --wait
+	scripts/test/traefik-routes.sh
+traefik-verify-plugins: ## Re-verify plugin tarball checksums in infra/traefik/plugins.lock against upstream
+	infra/traefik/scripts/fetch-plugins.sh
+
 .PHONY: keycloak-image keycloak-smoke keycloak-verify-checksums
 keycloak-image: ## Build the Keycloak image (web-app-test/keycloak:dev)
 	docker compose -f compose.test.yaml --profile keycloak build keycloak

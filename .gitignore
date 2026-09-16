@@ -13,6 +13,7 @@
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+.traefik-test/
 # decrypted SOPS output
 *.dec.yaml
 *.dec.json

@@ -1,0 +1,99 @@
+# Traefik static configuration (ADR-0012). __PLACEHOLDERS__ are rendered by scripts/docker-entrypoint.sh
+# from ACME_EMAIL, ACME_CA_SERVER and LOG_LEVEL. No Docker provider, no API/dashboard, no runtime
+# plugin downloads.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: __LOG_LEVEL__
+  format: json
+
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+  bufferingSize: 100
+  fields:
+    defaultMode: keep
+    names:
+      StartLocal: drop
+    headers:
+      defaultMode: drop      # never log Authorization, Cookie, Set-Cookie ...
+      names:
+        User-Agent: keep
+        Referer: keep
+        Content-Type: keep
+        X-Forwarded-For: keep
+
+# Request hygiene on every public entry point: reject header names that alias Traefik-managed
+# headers (X_Forwarded_For ...) and encoded path separators/NULs (split-view / traversal tricks).
+entryPoints:
+  web:
+    address: ":8080"        # published as 0.0.0.0:80
+    http:
+      redirections:
+        entryPoint:
+          to: ":443"          # public port, not the internal 8443 listener
+          scheme: https
+          permanent: true
+      aliasHeadersStrategy: reject
+      encodedCharacters:
+        allowEncodedSlash: false
+        allowEncodedBackslash: false
+        allowEncodedNullCharacter: false
+        allowEncodedQuestionMark: false
+    forwardedHeaders:
+      insecure: false
+  websecure:
+    address: ":8443"        # published as 0.0.0.0:443
+    http:
+      tls:
+        certResolver: le
+        options: default@file
+      aliasHeadersStrategy: reject
+      encodedCharacters:
+        allowEncodedSlash: false
+        allowEncodedBackslash: false
+        allowEncodedNullCharacter: false
+        allowEncodedQuestionMark: false
+    http2:
+      maxConcurrentStreams: 250
+    forwardedHeaders:
+      insecure: false
+    transport:
+      respondingTimeouts:
+        readTimeout: 30s
+        writeTimeout: 60s
+        idleTimeout: 120s
+  ping:
+    address: ":8082"        # never published
+    http:
+      aliasHeadersStrategy: reject
+
+ping:
+  entryPoint: ping
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+  providersThrottleDuration: 2s
+
+certificatesResolvers:
+  le:
+    acme:
+      email: __ACME_EMAIL__
+      caServer: __ACME_CA_SERVER__
+      storage: /letsencrypt/acme.json
+      keyType: EC256
+      httpChallenge:
+        entryPoint: web
+
+serversTransport:
+  insecureSkipVerify: false
+  maxIdleConnsPerHost: 50
+
+experimental:
+  localPlugins:
+    crowdsec:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
