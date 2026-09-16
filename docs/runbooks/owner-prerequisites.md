@@ -2,7 +2,7 @@
 
 **Purpose:** everything only the owner can do to unblock the remaining PLAN tasks, in the order that unblocks the most. Each item says what to click, what to run, where the value goes, how to verify, and which task it unblocks. Nothing here is committed in clear: values marked **secret** go into SOPS files or a password manager.
 **Prerequisites:** a laptop with `gh`, `docker`, `make`, `jq`, `openssl`, `age`, `sops`, `wireguard-tools` (`brew install gh age sops jq wireguard-tools`).
-**Last updated:** 2026-09-15 (state after T19; T11/T12/T13 blocked on P14, T20+ blocked on P5–P7).
+**Last updated:** 2026-09-16 (T11 merged and green; T12 next; T13 needs P3 + P4; T20+ blocked on P5–P7).
 
 ## Checklist (do in this order)
 
@@ -11,8 +11,8 @@
 | P14 | Grant the `gh` token the `workflow` scope | T11 CI, then T12, T13 | 2 min |
 | P13 | Install the Renovate GitHub App | T10 completion (dependency PRs) | 3 min |
 | P12 | Decide: GitHub Pro (enforced ruleset) or process-only protection | ADR-0017 §1 | 5 min |
-| P3 | Confirm GHCR package visibility | T12 | 2 min (after first image push) |
 | P4 | Create + install the deploy GitHub App, store its ID and key as repo secrets | T13 | 10 min |
+| P3 | Verify GHCR package visibility — **only after T12's first image push**; the Packages tab is empty until then | T13 | 2 min |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files | T19 completion, T20–T22 | 15 min |
 | P7 | WireGuard key pair on the laptop | T20 | 5 min |
@@ -56,11 +56,11 @@ Rulesets are refused on this private repo: `403 Upgrade to GitHub Pro or make th
 
 Secret scanning / push protection also need a paid plan (GitHub Secret Protection); `gitleaks` in CI is the compensating control either way.
 
-## P3 · GHCR package visibility (before T12's first push)
+## P3 · GHCR package visibility (after T12's first image push)
 
-Packages pushed by CI to `ghcr.io/akshatauppinventure/<component>` inherit the repository's visibility (private) when linked. After the first CI push:
+**Nothing to do before T12.** https://github.com/akshatauppinventure?tab=packages shows "Get started with GitHub Packages" until `build-publish.yml` (T12) has pushed images on the first merge to `main`. Packages pushed with `GITHUB_TOKEN` are linked to the repository automatically and inherit its visibility (private), so this is a verification, not a setup step. After that first push:
 
-1. https://github.com/akshatauppinventure?tab=packages → open each package (`frontend`, `backend`, `keycloak`, `traefik`, `crowdsec`, `postgres`) → **Package settings**.
+1. https://github.com/akshatauppinventure?tab=packages → the six packages (`frontend`, `backend`, `keycloak`, `traefik`, `crowdsec`, `postgres`) are listed → open each → **Package settings**.
 2. **Manage Actions access:** ensure `web-app-test` is listed (Role: Write is set automatically when the package is pushed from the repo).
 3. **Danger zone → Change visibility:** must read **Private**.
 4. Verify: `gh api /user/packages/container/frontend --jq .visibility` → `private`.
@@ -199,8 +199,8 @@ The deploy bot must open PRs with an **installation token** so required checks r
 | When | Task | Who | Trigger |
 |---|---|---|---|
 | P14 done | T11 CI (push branch, PR, negative PRs) | Claude | "push and merge T11" |
-| P14 + P3 | T12 build-publish (six images to GHCR, signed) | Claude | after T11 |
-| P14 + P4 | T13 deploy-PR bot + digest verification | Claude | after T12 |
+| P14 | T12 build-publish (six images to GHCR, signed) | Claude | after T11 |
+| T12 + P3 + P4 | T13 deploy-PR bot + digest verification | Claude | after T12 |
 | P5 + P6 + P7 | T20 provision both VPS (`tofu apply`, WireGuard, baselines) — **billing starts** | owner runs `tofu apply`; Claude prepares vars/plan | after T13 preferably (real digests in the stacks) |
 | T20 + T13 | T21 Portainer bootstrap and Git stacks | owner over WireGuard; Claude drafts the runbook | after T20 |
 | T21 + P8 + P9 | T22 DNS, TLS, first end-to-end deployment | both | after T21 |
