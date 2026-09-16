@@ -82,6 +82,12 @@ secrets-push: ## Decrypt and deliver secrets to HOST=edge|core over WireGuard (D
 secrets-check: ## SOPS round trip with a throwaway key, schema vs references, generators, dry-run push
 	scripts/test/secrets-roundtrip.sh
 
+.PHONY: bump-digest-test verify-stack-digests
+bump-digest-test: ## Unit tests for scripts/ci/bump-digest.py
+	cd backend && uv run pytest -q ../scripts/ci/tests/test_bump_digest.py
+verify-stack-digests: ## cosign-verify every ghcr.io digest referenced by the stacks (needs docker login ghcr.io)
+	scripts/ci/verify-stack-digests.sh
+
 .PHONY: tofu-check
 tofu-check: ## Static checks for infra/tofu/upcloud (fmt, init -backend=false, validate, tflint, trivy config); no credentials needed
 	scripts/test/tofu-check.sh
