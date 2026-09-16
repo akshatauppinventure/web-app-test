@@ -1,0 +1,226 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Dependency updates per ADR-0019/ADR-0020: digests everywhere, 3-day cooldown, weekly non-major batches, majors need dashboard approval, security updates immediately.",
+  "extends": [
+    "config:best-practices",
+    ":semanticCommitsDisabled",
+    ":pinAllExceptPeerDependencies",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
+  ],
+  "timezone": "America/New_York",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency dashboard (Renovate)",
+  "labels": [
+    "dependencies"
+  ],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "prConcurrentLimit": 6,
+  "prHourlyLimit": 4,
+  "rangeStrategy": "pin",
+  "commitMessagePrefix": "deps:",
+  "rebaseWhen": "behind-base-branch",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "dependencies",
+      "security"
+    ],
+    "minimumReleaseAge": null,
+    "schedule": [
+      "at any time"
+    ]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on the first day of the month"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Weekly batch of all non-major updates (per ecosystem group below still applies)",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ]
+    },
+    {
+      "description": "Majors as individual PRs, opened only after approval on the dashboard",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group: GitHub Actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pinDigest",
+        "digest"
+      ],
+      "groupName": "github-actions (weekly)"
+    },
+    {
+      "description": "Group: backend (uv / PEP 621)",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "backend python deps (weekly)"
+    },
+    {
+      "description": "Group: frontend (pnpm)",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "frontend npm deps (weekly)"
+    },
+    {
+      "description": "Group: container base images and compose images (digests + minors)",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "groupName": "container images (weekly)"
+    },
+    {
+      "description": "ADR-0007: Next.js floor 16.3.3, stay on 16.x",
+      "matchDatasources": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "next",
+        "eslint-config-next"
+      ],
+      "allowedVersions": ">=16.3.3 <17"
+    },
+    {
+      "description": "eslint 9.x until eslint-config-next supports ESLint 10 (T06 note)",
+      "matchDatasources": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "eslint"
+      ],
+      "allowedVersions": "<10"
+    },
+    {
+      "description": "ADR-0009: PostgreSQL 18 only; 19 requires a new ADR",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "allowedVersions": "<19"
+    },
+    {
+      "description": "ADR-0020: Node 24 until Node 26 LTS is adopted through an ADR/Renovate major",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "node"
+      ],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "ADR-0008: Python 3.14 until 3.15 is evaluated",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "<3.15"
+    },
+    {
+      "description": "ADR-0010: Keycloak tracks the latest release; minors within 2 weeks -> not batched",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "quay.io/keycloak/keycloak"
+      ],
+      "groupName": "keycloak",
+      "schedule": [
+        "at any time"
+      ],
+      "prPriority": 5
+    },
+    {
+      "description": "Keycloak Apple extension: version bump only; checksums.txt + ADD --checksum must be updated by hand (CI verify-checksums fails until then)",
+      "matchDatasources": [
+        "github-releases"
+      ],
+      "matchPackageNames": [
+        "klausbetz/apple-identity-provider-keycloak"
+      ],
+      "groupName": "keycloak",
+      "prBodyNotes": [
+        "Update `infra/keycloak/checksums.txt` (sha256 + sha512) and the `ADD --checksum` line, then run `make keycloak-smoke`."
+      ]
+    },
+    {
+      "description": "Traefik: latest 3.x (ADR-0020); plugin bumps handled in T14 lock file",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "traefik"
+      ],
+      "allowedVersions": "<4"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "ARG <NAME>_VERSION preceded by a `# renovate:` hint (Keycloak Apple extension, pnpm in Dockerfiles)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)(?: versioning=(?<versioning>[^\\s]+?))?\\s+ARG [A-Z_]+_VERSION=(?<currentValue>[^\\s]+)"
+      ]
+    },
+    {
+      "description": "packageManager field: pnpm@<version> in frontend/package.json",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^frontend/package\\.json$/"
+      ],
+      "matchStrings": [
+        "\"packageManager\":\\s*\"pnpm@(?<currentValue>[0-9.]+)\""
+      ],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
+  ]
+}

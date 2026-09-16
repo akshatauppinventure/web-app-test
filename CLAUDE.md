@@ -15,7 +15,7 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 2. **Test-driven.** Write the failing test first, then the minimum code to pass, then refactor. Every task's "Tests" list in `PLAN.md` is the minimum; each PR states how the tests were run.
 3. **Definition of done** is the global list in `PLAN.md` plus the task's own "Done when". CI green from T11 onward; before that, the task's listed local checks must pass.
 4. **No secrets in git.** Local dev secrets live in `.dev-secrets/` (gitignored); deployed secrets are SOPS+age encrypted in `infra/secrets/`. Never print secret values in logs, PRs or chat.
-5. **Pinning (ADR-0020).** Container images: exact tag **and** `@sha256:` digest, never `latest`. GitHub Actions: full commit SHA with a version comment. Python/Node dependencies: locked (`uv.lock`, `pnpm-lock.yaml`).
+5. **Pinning (ADR-0020).** Renovate (`renovate.json`) keeps pins current; put a `# renovate: datasource=… depName=…` comment above any `ARG *_VERSION` so it is tracked. Validate config changes with `npx --yes --package renovate@<ver> renovate-config-validator renovate.json`. Container images: exact tag **and** `@sha256:` digest, never `latest`. GitHub Actions: full commit SHA with a version comment. Python/Node dependencies: locked (`uv.lock`, `pnpm-lock.yaml`).
 6. **Docs move with code.** Update README, runbooks, `PLAN.md` status and this file in the same PR.
 7. **Commit messages:** imperative subject ≤ 72 chars prefixed with the task id, e.g. `T01: add FastAPI scaffold with health endpoints`.
 
@@ -101,4 +101,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T07 Frontend auth (Auth.js BFF) and /hello | done | #8 |
 | T08 Frontend container image | done | #9 |
 | T09 Local full stack + dev docs | done (Google login pending owner P2) | #10 |
-| T10–T25 | not started | — |
+| T10 Renovate + repo policy | done (app install pending owner P13) | #11 |
+| T11–T25 | not started | — |
