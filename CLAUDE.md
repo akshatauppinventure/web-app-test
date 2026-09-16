@@ -158,4 +158,11 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T09 Local full stack + dev docs | done (Google login pending owner P2) | #10 |
 | T10 Renovate + repo policy | done (app install pending owner P13) | #11 |
 | T11 CI workflow (lint, test, policy) | done; negative PRs #20–#22 failed as intended | #19, #23–#25 |
-| T12–T25 | not started | — |
+| T12 build-publish (six images: scan, push, attest, sign) | done; negative PR #29 failed at the Trivy gate; packages public until owner P3 | #28, #30, #31, #33 |
+| T14 Traefik image and configuration | done | #12 |
+| T15 CrowdSec engine, bouncer, AppSec (detect-only) | done | #13 |
+| T16 GitOps stacks (edge, core) + policy checks | done | #14 |
+| T17 Host configuration (cloud-init, nftables, WireGuard, Docker, timers) | done | #15 |
+| T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
+| T19 Secrets tooling (SOPS + age) | done (encrypted files pending owner P5) | #16 |
+| T13, T20–T25 | not started | — |
