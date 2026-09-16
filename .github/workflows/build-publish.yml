@@ -158,17 +158,6 @@ jobs:
           sbom: true
           provenance: mode=max
 
-      - name: Assert SBOM and provenance attestations are attached
-        if: github.event_name != 'pull_request'
-        env:
-          IMAGE: ${{ steps.ctx.outputs.image }}
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: |
-          docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{json .Provenance}}' | jq -e '.["linux/amd64"].SLSA.buildType != null' >/dev/null
-          pkgs="$(docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{json .SBOM}}' | jq '.["linux/amd64"].SPDX.packages | length')"
-          [[ "$pkgs" -gt 0 ]] || { echo "SBOM has no packages"; exit 1; }
-          echo "provenance (SLSA) present; SBOM lists ${pkgs} packages"
-
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -192,3 +181,16 @@ jobs:
             echo "${IMAGE}:sha-${GITHUB_SHA}@${DIGEST}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert SBOM and provenance attestations are attached
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.ctx.outputs.image }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          # single-platform images expose .Provenance/.SBOM directly; multi-platform ones key them by platform
+          docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{json .Provenance}}' \
+            | jq -e '(.SLSA.buildDefinition.buildType // .SLSA.buildType // .["linux/amd64"].SLSA.buildDefinition.buildType) != null' >/dev/null
+          pkgs="$(docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{json .SBOM}}' | jq '(.SPDX.packages // .["linux/amd64"].SPDX.packages) | length')"
+          [[ "$pkgs" -gt 0 ]] || { echo "SBOM has no packages"; exit 1; }
+          echo "provenance (SLSA) present; SBOM lists ${pkgs} packages"
