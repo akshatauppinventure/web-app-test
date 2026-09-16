@@ -161,6 +161,8 @@ jobs:
         run: scripts/ci/check-published-ports.sh
       - name: Container hardening baseline (infra/stacks)
         run: python3 scripts/ci/check-hardening.py
+      - name: Host configuration (cloud-init schema, nftables, WireGuard, DOCKER-USER rules)
+        run: scripts/test/host-config.sh
       - name: Keycloak third-party checksums
         run: infra/keycloak/scripts/verify-checksums.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
