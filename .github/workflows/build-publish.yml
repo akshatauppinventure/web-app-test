@@ -270,7 +270,7 @@ jobs:
             if [[ "$out" == "changed=" ]]; then echo "${component}: stacks already reference ${digest}; nothing to deploy"; continue; fi
             git add infra/stacks
             git commit -q -m "deploy(${component}): sha-${SHA}" -m "ghcr.io/${REPO%%/*}/${component}:sha-${SHA}@${digest}" -m "Built and signed by ${RUN_URL}"
-            git push -q --force-with-lease origin "$branch"
+            git push -q --force origin "$branch"   # bot-owned branch; shallow checkout has no lease info
             if gh pr list --head "$branch" --state open --json number --jq 'length' | grep -qx 0; then
               gh pr create --head "$branch" --base main --title "deploy(${component}): sha-${short}" --label deploy --body "$(printf 'Image built, scanned, attested and signed by %s.\n\n```\nghcr.io/%s/%s:sha-%s@%s\n```\n\n`verify-deploy` runs `cosign verify` on every digest in the stacks, then merges this PR (POC auto-merge, ADR-0018 §3). Rollback: revert this commit (docs/runbooks/deploy-and-rollback.md).' "$RUN_URL" "${REPO%%/*}" "$component" "$SHA" "$digest")"
             fi
