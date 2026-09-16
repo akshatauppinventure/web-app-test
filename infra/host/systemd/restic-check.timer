@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly restic check, Sundays 04:30 America/New_York
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

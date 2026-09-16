@@ -1,0 +1,41 @@
+#!/usr/sbin/nft -f
+# VPS-B "core" host firewall (ADR-0014 layer 2). No public TCP ports at all: only WireGuard (UDP
+# 51820) from the internet; SSH and Portainer only over wg0 from admin peers; Keycloak/FastAPI only
+# from VPS-A over wg0 (enforced again in DOCKER-USER for the container-bound ports).
+flush ruleset
+
+define PUBLIC_IF = "__PUBLIC_IF__"
+define WG_IF = "wg0"
+define ADMIN_PEERS = { 10.10.0.10-10.10.0.19 }
+define EDGE_HOST = 10.10.0.1
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif "lo" accept
+    ct state established,related accept
+    ct state invalid drop
+
+    ip protocol icmp icmp type { destination-unreachable, time-exceeded, parameter-problem } accept
+    ip protocol icmp icmp type echo-request limit rate 10/second accept
+    ip6 nexthdr icmpv6 icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+    iifname $PUBLIC_IF udp dport 51820 accept
+
+    iifname $WG_IF ip saddr $ADMIN_PEERS tcp dport 22 accept
+
+    counter drop
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+    ct state established,related accept
+    ct state invalid drop
+    counter drop
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}

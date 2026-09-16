@@ -1,0 +1,18 @@
+# /etc/wireguard/wg0.conf on VPS-B (rendered by cloud-init; ADR-0015). Private key generated on host.
+[Interface]
+Address = 10.10.0.2/24
+ListenPort = 51820
+PrivateKey = __WG_PRIVATE_KEY__
+PostUp = /usr/local/sbin/wg-apply-psks.sh %i
+
+# VPS-A (edge) — public key and endpoint set during provisioning (T20)
+[Peer]
+PublicKey = __EDGE_PUBLIC_KEY__
+AllowedIPs = 10.10.0.1/32
+Endpoint = __EDGE_ENDPOINT__
+PersistentKeepalive = 25
+
+# Admin: owner-laptop
+[Peer]
+PublicKey = __ADMIN_PUBLIC_KEY__
+AllowedIPs = 10.10.0.10/32

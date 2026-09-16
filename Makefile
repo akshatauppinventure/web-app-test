@@ -66,6 +66,10 @@ traefik-verify-plugins: ## Re-verify plugin tarball checksums in infra/traefik/p
 crowdsec-test: ## CrowdSec engine + bouncer checks against the running Traefik test stack
 	scripts/test/crowdsec.sh
 
+.PHONY: host-check
+host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules) in ubuntu:26.04 containers
+	scripts/test/host-config.sh
+
 .PHONY: stacks-check stacks-dryrun
 stacks-check: ## Static policy checks for every compose file (config, published ports, hardening baseline)
 	scripts/ci/check-compose.sh

@@ -1,0 +1,10 @@
+{
+  "ip": "127.0.0.1",
+  "no-new-privileges": true,
+  "live-restore": true,
+  "userland-proxy": false,
+  "icc": false,
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "5" },
+  "default-address-pools": [{ "base": "172.28.0.0/16", "size": 24 }]
+}

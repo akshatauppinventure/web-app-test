@@ -1,0 +1,7 @@
+[Unit]
+Description=Host health check (ADR-0024)
+After=docker.service wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/healthcheck.sh

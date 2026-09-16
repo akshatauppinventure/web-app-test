@@ -1,0 +1,20 @@
+# WireGuard peer map (ADR-0015). PUBLIC keys only; private keys are generated on each device and
+# never leave it. Pre-shared keys are SOPS secrets (infra/secrets/*.sops.yaml, T19).
+# Server keys are filled in during provisioning (T20) after cloud-init generated them.
+network: 10.10.0.0/24
+port: 51820
+servers:
+  edge:
+    wg_ip: 10.10.0.1
+    public_key: "REPLACE_AFTER_PROVISIONING"
+    endpoint_for_core: "<edge SDN private IP>:51820"
+    endpoint_for_admins: "<edge public IP>:51820"
+  core:
+    wg_ip: 10.10.0.2
+    public_key: "REPLACE_AFTER_PROVISIONING"
+    endpoint_for_edge: "<core SDN private IP>:51820"
+    endpoint_for_admins: "<core public IP>:51820"
+admins:
+  - name: owner-laptop
+    wg_ip: 10.10.0.10
+    public_key: "REPLACE_WITH_ADMIN_PUBLIC_KEY"   # owner prerequisite P7
