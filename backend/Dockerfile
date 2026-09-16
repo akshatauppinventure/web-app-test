@@ -4,7 +4,7 @@
 # Digests are managed by Renovate (T10).
 
 # NEGATIVE TEST (T12): an old base image with known fixable CVEs; must fail the Trivy gate
-ARG PYTHON_IMAGE=python:3.11.0-slim-bullseye
+ARG PYTHON_IMAGE=python:3.14.0-slim-trixie
 
 # --- uv binary (distroless image, only /uv is copied) -----------------------------------
 FROM ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 AS uv
