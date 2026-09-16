@@ -68,9 +68,13 @@ pass "AppSec processed the probes ($before -> $after) and matched $hits rule hit
 
 # 5. fail-open: stop CrowdSec, traffic must still flow, Traefik logs the outage
 "${COMPOSE[@]}" stop crowdsec >/dev/null 2>&1
-sleep 4
-[[ "$(code "$BASE/")" == "200" ]] || fail "traffic blocked while CrowdSec is down (fail-open expected)"
-"${COMPOSE[@]}" logs --since 30s traefik 2>/dev/null | grep -qiE "crowdsecQuery:unreachable|CrowdsecBouncerTraefikPlugin.*(unreachable|error)" || fail "Traefik did not log the CrowdSec outage"
+logged=""
+for _ in $(seq 1 20); do   # the plugin retries the stream every few seconds; give a slow runner time
+  [[ "$(code "$BASE/")" == "200" ]] || fail "traffic blocked while CrowdSec is down (fail-open expected)"
+  if "${COMPOSE[@]}" logs --since 2m traefik 2>/dev/null | grep -qiE "crowdsecQuery:unreachable|CrowdsecBouncerTraefikPlugin.*(unreachable|error)"; then logged=yes; break; fi
+  sleep 1
+done
+[[ "$logged" == "yes" ]] || fail "Traefik did not log the CrowdSec outage within 20 s"
 "${COMPOSE[@]}" start crowdsec >/dev/null 2>&1
 for _ in $(seq 1 30); do cscli lapi status >/dev/null 2>&1 && break; sleep 2; done
 pass "fail-open confirmed: site served while CrowdSec was down; outage logged by Traefik"
