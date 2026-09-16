@@ -18,6 +18,8 @@ env:
   PYTHON_VERSION: "3.14"
   NODE_VERSION: "24"
   RENOVATE_VERSION: "44.93.5"
+  SOPS_VERSION: "v3.13.3"
+  SOPS_SHA256: "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
 
 jobs:
   changes:
@@ -54,6 +56,7 @@ jobs:
               - '.hadolint.yaml'
               - 'renovate.json'
               - '.github/**'
+              - '.sops.yaml'
             keycloak:
               - 'infra/keycloak/**'
               - 'infra/postgres/**'
@@ -163,6 +166,35 @@ jobs:
         run: python3 scripts/ci/check-hardening.py
       - name: Host configuration (cloud-init schema, nftables, WireGuard, DOCKER-USER rules)
         run: scripts/test/host-config.sh
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: "1.12.6"
+          tofu_wrapper: false
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: v0.64.0
+      - name: OpenTofu fmt, validate, tflint
+        working-directory: infra/tofu/upcloud
+        run: |
+          tofu fmt -check -recursive
+          tofu init -backend=false -input=false
+          tofu validate
+          tflint --init && tflint --config .tflint.hcl
+      - name: OpenTofu misconfiguration scan (trivy config)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra/tofu/upcloud
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+      - name: Install sops (checksum-verified) and age
+        run: |
+          curl -fsSL -o /tmp/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
+          echo "${SOPS_SHA256}  /tmp/sops" | sha256sum -c -
+          sudo install -m 0755 /tmp/sops /usr/local/bin/sops
+          sudo apt-get update -qq && sudo apt-get install -y -qq age wireguard-tools
+      - name: Secrets tooling round trip (throwaway age key)
+        run: scripts/test/secrets-roundtrip.sh
       - name: Keycloak third-party checksums
         run: infra/keycloak/scripts/verify-checksums.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
