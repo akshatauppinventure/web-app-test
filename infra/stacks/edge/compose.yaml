@@ -55,7 +55,7 @@ services:
 
   crowdsec:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/crowdsec:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/akshatauppinventure/crowdsec:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:08de578293d8a4d7e2f403501f33f25a85d7645972370b8407df302ee4c2b924
     # root required by the upstream entrypoint (hub install, log reading); mitigated by read_only,
     # cap_drop ALL and no published ports. Whitelisted in infra/policy/hardening-exceptions.yaml.
     user: "0:0"
