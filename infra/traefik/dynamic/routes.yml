@@ -1,0 +1,57 @@
+# Routers and services (ADR-0012 §6). Go templates read PUBLIC_HOST, FRONTEND_UPSTREAM and
+# KEYCLOAK_UPSTREAM from the environment so the same file serves the local test (Docker service
+# names) and the POC (frontend on the edge network, Keycloak over WireGuard at 10.10.0.2).
+http:
+  routers:
+    frontend:
+      rule: "Host(`{{ env "PUBLIC_HOST" }}`)"
+      entryPoints: [websecure]
+      service: frontend
+      priority: 10
+      middlewares: [crowdsec, secure-headers, ratelimit-app, inflight, body-limit, compress]
+      tls:
+        certResolver: le
+
+    keycloak-public:
+      rule: "Host(`{{ env "PUBLIC_HOST" }}`) && (PathPrefix(`/auth/realms/`) || PathPrefix(`/auth/resources/`))"
+      entryPoints: [websecure]
+      service: keycloak
+      priority: 30
+      middlewares: [crowdsec, secure-headers, ratelimit-auth, inflight, body-limit-auth]
+      tls:
+        certResolver: le
+
+    keycloak-block:
+      rule: "Host(`{{ env "PUBLIC_HOST" }}`) && PathPrefix(`/auth`)"
+      entryPoints: [websecure]
+      service: noop@internal
+      priority: 20
+      middlewares: [crowdsec, secure-headers, not-found]
+      tls:
+        certResolver: le
+
+    catch-all:
+      rule: "HostRegexp(`.+`)"
+      entryPoints: [websecure]
+      service: noop@internal
+      priority: 1
+      middlewares: [secure-headers, not-found]
+      tls: {}
+
+  services:
+    frontend:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "{{ env "FRONTEND_UPSTREAM" }}"
+        healthCheck:
+          path: /api/healthz
+          interval: 15s
+          timeout: 3s
+    keycloak:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "{{ env "KEYCLOAK_UPSTREAM" }}"
+        responseForwarding:
+          flushInterval: 100ms

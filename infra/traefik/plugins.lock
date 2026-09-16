@@ -1,0 +1,4 @@
+# Traefik local plugins baked into the image (ADR-0012 §3). Source tarballs from GitHub release tags,
+# verified by sha256 in the Dockerfile (ADD --checksum) and by scripts/fetch-plugins.sh (CI).
+# format: <module> <version> <url> <sha256>
+github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin v1.7.1 https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/archive/refs/tags/v1.7.1.tar.gz a50cdfe37d67c48be571417a26d8c5a2b28e4b91e5b1ed3b1ea2bcb0e6b4aa38

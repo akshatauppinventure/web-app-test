@@ -1,0 +1,81 @@
+# Traefik routing/header tests (PLAN T14/T15). Upstreams are whoami stubs so only Traefik behaviour
+# is under test (Keycloak admin paths must be blocked by Traefik, not by the upstream).
+# Usage: docker compose -f compose.traefik-test.yaml up -d --build --wait && scripts/test/traefik-routes.sh
+name: web-app-test-traefik-test
+
+services:
+  traefik:
+    build:
+      context: ./infra/traefik
+    image: web-app-test/traefik:dev
+    environment:
+      ACME_EMAIL: acme-test@example.com
+      ACME_CA_SERVER: https://127.0.0.1:9/directory     # unreachable on purpose: no ACME in tests
+      LOG_LEVEL: INFO
+      PUBLIC_HOST: test-vinayak.duckdns.org
+      FRONTEND_UPSTREAM: http://frontend:80
+      KEYCLOAK_UPSTREAM: http://keycloak:80
+    secrets:
+      - crowdsec_bouncer_key
+    ports:
+      - "127.0.0.1:18081:8080"
+      - "127.0.0.1:18443:8443"
+    networks: [edge]
+    volumes:
+      - letsencrypt-test:/letsencrypt
+      - traefik-logs-test:/var/log/traefik
+      # test-only self-signed certificate for the public host (scripts/test/traefik-test-certs.sh)
+      - ./.traefik-test/certs:/certs:ro
+      - ./.traefik-test/dynamic/zz-test-certs.yml:/etc/traefik/dynamic/zz-test-certs.yml:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=65532,gid=65532
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping.entryPoint=ping", "--entryPoints.ping.address=:8082"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+    pids_limit: 128
+
+  frontend:
+    image: traefik/whoami:v1.11.0@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab
+    command: ["--port=80", "--name=frontend-stub"]
+    networks: [edge]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    pids_limit: 32
+
+  keycloak:
+    image: traefik/whoami:v1.11.0@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab
+    command: ["--port=80", "--name=keycloak-stub"]
+    networks: [edge]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    pids_limit: 32
+
+secrets:
+  crowdsec_bouncer_key:
+    file: ./scripts/test/pg-secrets/crowdsec_bouncer_key
+
+volumes:
+  letsencrypt-test:
+  traefik-logs-test:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.28.3.0/24
