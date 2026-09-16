@@ -12,7 +12,7 @@
 | P13 | Install the Renovate GitHub App | T10 completion (dependency PRs) | 3 min |
 | P12 | Decide: GitHub Pro (enforced ruleset) or process-only protection | ADR-0017 §1 | 5 min |
 | P4 | Create + install the deploy GitHub App, store its ID and key as repo secrets | T13 | 10 min |
-| P3 | **Make the six GHCR packages private** (T12 created them public; UI only) | ADR-0017 §5, T13 | 5 min |
+| P3 | GHCR packages private — **done** (CI enforces it on every publish) | ADR-0017 §5, T13 | — |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files | T19 completion, T20–T22 | 15 min |
 | P7 | WireGuard key pair on the laptop | T20 | 5 min |
@@ -56,7 +56,9 @@ Rulesets are refused on this private repo: `403 Upgrade to GitHub Pro or make th
 
 Secret scanning / push protection also need a paid plan (GitHub Secret Protection); `gitleaks` in CI is the compensating control either way.
 
-## P3 · GHCR package visibility — **do this now, the packages came out public**
+## P3 · GHCR package visibility — **done 2026-09-16** (all six private; run 35065230791 green)
+
+Why they were public: GitHub links a package pushed with `GITHUB_TOKEN` to the repository and the package *inherits the repository's access permissions*, but the *visibility* flag is set at creation and GitHub set it to public for packages first created from Actions in this personal namespace. The publish workflow now fails the run while any package answers anonymous requests, so a regression (or a new component) is caught on the first push.
 
 T12's first publish (2026-09-16) created the six packages `ghcr.io/akshatauppinventure/{frontend,backend,keycloak,traefik,crowdsec,postgres}`. Checked anonymously: `https://ghcr.io/v2/akshatauppinventure/backend/tags/list` answers **200** with the tag list to a client without any token, so GitHub created them as **public** even though the repository is private. Container package visibility cannot be changed through the API; it takes six clicks in the UI. Nothing secret is in the images (they are built from the repo), but ADR-0017 §5 requires private packages and T13's pull credentials assume it.
 
