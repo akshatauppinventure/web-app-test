@@ -153,5 +153,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T08 Frontend container image | done | #9 |
 | T09 Local full stack + dev docs | done (Google login pending owner P2) | #10 |
 | T10 Renovate + repo policy | done (app install pending owner P13) | #11 |
-| T11 CI workflow (lint, test, policy) | done | #12 |
+| T11 CI workflow (lint, test, policy) | done; negative PRs #20–#22 failed as intended | #19, #23–#25 |
 | T12–T25 | not started | — |
