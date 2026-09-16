@@ -35,6 +35,8 @@ frontend-check: ## Frontend: frozen install, next-version guard, eslint, tsc, vi
 	cd frontend && pnpm install --frozen-lockfile && pnpm check
 frontend-run: ## Frontend: next dev on :3000
 	cd frontend && pnpm dev
+frontend-e2e: ## Browser-less login/logout flow against running frontend (:3000), backend (:8000) and Keycloak (:18080)
+	scripts/test/frontend-e2e.sh http://localhost:3000 http://localhost:18080/auth/realms/app
 
 .PHONY: frontend-image frontend-image-test
 frontend-image: ## Build the frontend image (T08)
