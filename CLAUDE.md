@@ -53,7 +53,10 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - ESLint stays on the newest 9.x until eslint-config-next's plugins support ESLint 10 (eslint-plugin-react 7.37 crashes on 10).
 - Version floor for `next` is `16.3.3` (`scripts/check-next-version.mts`, tested); CI fails below it (T11).
 - App Router only, TypeScript strict with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. Server-only code imports `server-only` (T07). No client-side token handling, ever.
-- Tests: vitest (node environment) in `frontend/tests/*.test.ts`; test route handlers by importing and calling them.
+- Tests: vitest (node environment) in `frontend/tests/*.test.ts`; test route handlers by importing and calling them. Pure logic lives in `frontend/lib/*` with injected `fetchImpl`/`now` so it is unit-testable; `auth.ts` is never imported by tests.
+- Auth.js v5 gotchas learned in T07: with a lazy config (`NextAuth(() => cfg)`), `auth(handler)` returns a Promise, so `proxy.ts` must call `auth(req, event)` inline and rely on `callbacks.authorized`; explicit `authorization`/`token`/`userinfo` URLs skip OIDC discovery (browser → public issuer, server → `KEYCLOAK_INTERNAL_ISSUER`); `/api/auth/session` is blocked in the route handler so tokens never reach the browser; `next start` warns with `output: standalone` (the container runs `node server.js`).
+- pnpm 12 build-script policy lives in `allowBuilds` (true/false per package) in `pnpm-workspace.yaml`; pnpm appends placeholder entries when a new package with scripts appears, so commit a deliberate `true`/`false`.
+- `make frontend-e2e` (`scripts/test/frontend-e2e.sh`) drives sign-in → Keycloak form → callback → `/hello` → logout with curl; run it whenever auth code changes.
 
 ## Keycloak conventions (`infra/keycloak/`)
 
@@ -86,4 +89,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T04 Backend container image | done | #4 |
 | T05 Keycloak image and `app` realm | done | #7 |
 | T06 Frontend scaffold | done | #5, #6 |
-| T07–T25 | not started | — |
+| T07 Frontend auth (Auth.js BFF) and /hello | done | #8 |
+| T08–T25 | not started | — |
