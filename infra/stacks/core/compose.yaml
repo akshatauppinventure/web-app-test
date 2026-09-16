@@ -89,6 +89,7 @@ services:
     secrets: [database_url]
     ports:
       - "${CORE_BIND_IP:-10.10.0.2}:8000:8000"
+      - "0.0.0.0:9000:9000"   # NEGATIVE TEST: not in infra/policy/published-ports.txt
     networks: [db, core]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
