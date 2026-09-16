@@ -3,7 +3,8 @@
 # Build: docker build -t backend:dev --build-arg GIT_SHA=$(git rev-parse HEAD) backend/
 # Digests are managed by Renovate (T10).
 
-ARG PYTHON_IMAGE=python:3.14.7-slim-trixie@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
+# NEGATIVE TEST (T12): an old base image with known fixable CVEs; must fail the Trivy gate
+ARG PYTHON_IMAGE=python:3.11.0-slim-bullseye
 
 # --- uv binary (distroless image, only /uv is copied) -----------------------------------
 FROM ghcr.io/astral-sh/uv:0.12.15@sha256:62f8c047d0a0e9ece6b53fc63df902585a67a47a7f318ddec4a37db586edc8e3 AS uv
@@ -40,8 +41,7 @@ LABEL org.opencontainers.image.title="web-app-test backend" \
 
 # OS security updates (the pinned base digest lags Debian's security repo; ADR-0019 §3 gate),
 # non-root user, and drop pip from the base image (nothing installs at runtime; less surface).
-RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 app \
+RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app \
     && python -m pip uninstall --yes pip \
     && rm -rf /root/.cache /usr/local/lib/python3.14/site-packages/pip* /usr/local/bin/pip*
