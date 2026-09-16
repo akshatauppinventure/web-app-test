@@ -13,7 +13,9 @@
 
 Components: `frontend`, `backend` (contexts `frontend/`, `backend/`), `keycloak`, `traefik`, `crowdsec`, `postgres` (contexts `infra/<name>/`). Tags are immutable in practice; the deploy PR bot (T13) writes `tag@sha256:digest` into `infra/stacks/*/compose.yaml`.
 
-## Verify an image (laptop, `docker login ghcr.io` with a read-only token)
+## Verify an image
+
+Every push-to-main run already asserts, per image: provenance present, SBOM non-empty, and `cosign verify` against this workflow's identity (see the job log and the run summary for the `tag@digest` lines). To repeat it from a laptop the CLI token needs the `read:packages` scope (`gh auth refresh -h github.com -s read:packages`, then `gh auth token | docker login ghcr.io -u <user> --password-stdin`):
 
 ```bash
 IMG=ghcr.io/akshatauppinventure/backend:sha-<sha>
