@@ -12,8 +12,11 @@ rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "${1:-32}"; }
 put() {  # put <name> <value>
   local f="$DIR/$1"
   if [[ -e "$f" && "$FORCE" != "--force" ]]; then echo "keep   $1"; return; fi
-  umask 077
+  # The directory is 0700; files are 0644 because Compose bind-mounts them into containers that
+  # run as other UIDs (postgres 999, keycloak 1000, backend 10001) on Linux hosts and CI runners.
+  umask 022
   printf '%s' "$2" > "$f"
+  chmod 0644 "$f"
   echo "write  $1"
 }
 
