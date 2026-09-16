@@ -194,3 +194,16 @@ jobs:
           pkgs="$(docker buildx imagetools inspect "${IMAGE}@${DIGEST}" --format '{{json .SBOM}}' | jq '(.SPDX.packages // .["linux/amd64"].SPDX.packages) | length')"
           [[ "$pkgs" -gt 0 ]] || { echo "SBOM has no packages"; exit 1; }
           echo "provenance (SLSA) present; SBOM lists ${pkgs} packages"
+
+      - name: Package must not be publicly readable (ADR-0017 §5, P3)
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_PATH: ${{ env.OWNER }}/${{ matrix.component }}
+        run: |
+          tok="$(curl -sf "https://ghcr.io/token?scope=repository:${IMAGE_PATH}:pull" | jq -r .token)"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${tok}" "https://ghcr.io/v2/${IMAGE_PATH}/tags/list")"
+          if [[ "$code" == "200" ]]; then
+            echo "::error::ghcr.io/${IMAGE_PATH} is PUBLIC (anonymous tags/list -> 200). Make it private: Packages -> package settings -> Change visibility (docs/runbooks/owner-prerequisites.md P3)."
+            exit 1
+          fi
+          echo "ghcr.io/${IMAGE_PATH} refuses anonymous access (HTTP ${code})"
