@@ -38,6 +38,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
 - `make keycloak-image` / `make keycloak-smoke` — build the Keycloak image and run the smoke test against Postgres + Keycloak on `127.0.0.1:18080` (compose profile `keycloak`). Run the smoke test for every Keycloak or extension bump.
+- `make frontend-image` / `make frontend-image-test` — build `web-app-test/frontend:dev` and run `scripts/test/frontend-image.sh` (uid 1000, read-only FS with tmpfs `/app/.next/cache`, no npm, `/api/healthz`, no `X-Powered-By`, labels, HEALTHCHECK).
 - `make backend-image` / `make backend-image-test` — build `web-app-test/backend:dev` and run `scripts/test/backend-image.sh` (uid 10001, read-only FS, no uv/pip, `/healthz`, OCI labels, HEALTHCHECK). `make hadolint` lints all Dockerfiles with `.hadolint.yaml` (warnings fail).
 
 ## Container image conventions
@@ -90,4 +91,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T05 Keycloak image and `app` realm | done | #7 |
 | T06 Frontend scaffold | done | #5, #6 |
 | T07 Frontend auth (Auth.js BFF) and /hello | done | #8 |
-| T08–T25 | not started | — |
+| T08 Frontend container image | done | #9 |
+| T09–T25 | not started | — |

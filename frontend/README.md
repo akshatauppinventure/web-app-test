@@ -31,3 +31,12 @@ make backend-migrate DATABASE_URL=postgresql+psycopg://app_migrator:test-only-ap
 # terminal 2: frontend (cp .env.example .env.local, set AUTH_KEYCLOAK_ISSUER=http://localhost:18080/auth/realms/app, pnpm build && pnpm start)
 make frontend-e2e
 ```
+
+## Container image
+
+```bash
+make frontend-image        # docker build (pnpm frozen install, next build, standalone runtime)
+make frontend-image-test   # hardening checks (scripts/test/frontend-image.sh)
+```
+
+Runtime: uid 1000 (`node`), only `server.js` + `.next/static` + `public`, no npm/yarn/corepack; `CMD node server.js` on :3000. Mount a `tmpfs` at `/app/.next/cache` when running read-only. Configuration comes from `AUTH_*`, `KEYCLOAK_INTERNAL_ISSUER`, `API_BASE_URL` and `*_FILE` secrets (see `.env.example`).
