@@ -12,7 +12,7 @@
 | P13 | Install the Renovate GitHub App | T10 completion (dependency PRs) | 3 min |
 | P12 | Decide: GitHub Pro (enforced ruleset) or process-only protection | ADR-0017 §1 | 5 min |
 | P4 | Create + install the deploy GitHub App, store its ID and key as repo secrets | T13 | 10 min |
-| P3 | Verify GHCR package visibility — **only after T12's first image push**; the Packages tab is empty until then | T13 | 2 min |
+| P3 | **Make the six GHCR packages private** (T12 created them public; UI only) | ADR-0017 §5, T13 | 5 min |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files | T19 completion, T20–T22 | 15 min |
 | P7 | WireGuard key pair on the laptop | T20 | 5 min |
@@ -56,14 +56,22 @@ Rulesets are refused on this private repo: `403 Upgrade to GitHub Pro or make th
 
 Secret scanning / push protection also need a paid plan (GitHub Secret Protection); `gitleaks` in CI is the compensating control either way.
 
-## P3 · GHCR package visibility (after T12's first image push)
+## P3 · GHCR package visibility — **do this now, the packages came out public**
 
-**Nothing to do before T12.** https://github.com/akshatauppinventure?tab=packages shows "Get started with GitHub Packages" until `build-publish.yml` (T12) has pushed images on the first merge to `main`. Packages pushed with `GITHUB_TOKEN` are linked to the repository automatically and inherit its visibility (private), so this is a verification, not a setup step. After that first push:
+T12's first publish (2026-09-16) created the six packages `ghcr.io/akshatauppinventure/{frontend,backend,keycloak,traefik,crowdsec,postgres}`. Checked anonymously: `https://ghcr.io/v2/akshatauppinventure/backend/tags/list` answers **200** with the tag list to a client without any token, so GitHub created them as **public** even though the repository is private. Container package visibility cannot be changed through the API; it takes six clicks in the UI. Nothing secret is in the images (they are built from the repo), but ADR-0017 §5 requires private packages and T13's pull credentials assume it.
 
-1. https://github.com/akshatauppinventure?tab=packages → the six packages (`frontend`, `backend`, `keycloak`, `traefik`, `crowdsec`, `postgres`) are listed → open each → **Package settings**.
-2. **Manage Actions access:** ensure `web-app-test` is listed (Role: Write is set automatically when the package is pushed from the repo).
-3. **Danger zone → Change visibility:** must read **Private**.
-4. Verify: `gh api /user/packages/container/frontend --jq .visibility` → `private`.
+1. https://github.com/akshatauppinventure?tab=packages → the six packages are listed now.
+2. For **each** package: open it → **Package settings** (right side) → **Danger Zone → Change visibility** → **Private** → type the package name → confirm.
+3. While there, under **Manage Actions access** confirm `web-app-test` is listed with role **Write** (it is added automatically when the workflow pushes) — the next publish must still be able to push.
+4. Verify from any terminal (no token): every line must print `401` (or `403`), never `200`:
+   ```bash
+   for c in frontend backend keycloak traefik crowdsec postgres; do
+     tok=$(curl -s "https://ghcr.io/token?scope=repository:akshatauppinventure/$c:pull" | jq -r .token)
+     printf '%-9s ' $c; curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $tok" "https://ghcr.io/v2/akshatauppinventure/$c/tags/list"
+   done
+   ```
+   The same check runs at the end of every `build-publish` run and fails the run while any package is public.
+5. Optional cleanup (needs `delete:packages` on a token): the six digests from run 35063445754 were pushed before a failed step and are unsigned; they are never referenced and can be deleted from each package's **Versions** page.
 
 ## P4 · GitHub App for deploy PRs (blocks T13)
 
