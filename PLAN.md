@@ -28,6 +28,8 @@ _Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`
 
 ## Owner prerequisites (things only you can do)
 
+Detailed click-by-click steps for every item, with verification commands, are in [`docs/runbooks/owner-prerequisites.md`](docs/runbooks/owner-prerequisites.md).
+
 | # | Needed by | Action | Where the result goes |
 |---|---|---|---|
 | P1 | T00 | Create a **private GitHub repository** `akshatauppinventure/web-app-test` (empty) | Remote for the repo |
