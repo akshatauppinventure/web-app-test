@@ -257,6 +257,7 @@ jobs:
         run: |
           set -euo pipefail
           bot_id="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          gh label create deploy --repo "$REPO" --color 0e8a16 --description "Digest bump opened by the deploy app (ADR-0018)" --force >/dev/null
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
