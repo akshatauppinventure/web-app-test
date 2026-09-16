@@ -26,7 +26,7 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 | Backend | `uv`, Python 3.14, `ruff`, `pyright`, `pytest` | `cd backend && uv sync --locked` |
 | Frontend | `pnpm` 12 (exact version in `package.json`; `npm i -g pnpm@<ver>` if corepack fails), Node 24 | `cd frontend && pnpm install --frozen-lockfile` |
 | Containers | Docker 29 (arm64 locally; CI builds `linux/amd64`), `hadolint` | Test images with `--read-only --cap-drop ALL --security-opt no-new-privileges` |
-| Infra | `shellcheck`, `docker compose config`, `sops`, `age`, `tofu` | Installed as the corresponding tasks land |
+| Infra | `shellcheck`, `docker compose config`, `sops`, `age`, `tofu` (OpenTofu 1.12), `tflint` (release binary in `~/.local/bin`; no brew formula), `trivy` | `brew install sops age opentofu trivy` |
 
 ## Commands
 
@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make tofu-check` — `tofu fmt -check`, `tofu init -backend=false`, `tofu validate`, `tflint`, `trivy config` on `infra/tofu/upcloud` (no credentials). `tofu plan` needs `UPCLOUD_TOKEN` (P6) and the rendered cloud-init files.
 - `make secrets-check` — SOPS/age round trip with a throwaway key, `infra/secrets/SCHEMA.md` vs every referenced secret, generator coverage, dry-run push. `make secrets-gen` / `secrets-encrypt SRC=` / `secrets-push HOST=` are the owner's workflow (`docs/runbooks/secrets.md`).
 - `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, `wg-quick strip`, DOCKER-USER rules) in `ubuntu:26.04` containers.
 - `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
@@ -62,6 +63,13 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Values shared by both hosts are generated once and copied with `--shared-from`; owner-supplied values are `CHANGE_ME` markers until filled.
 - `secrets-push.sh` maps each name to a path, owner UID and mode; a secret without a rule fails the push. Values travel only over stdin to `ssh … tee`; never as arguments.
 - The repo's `.sops.yaml` holds the owner's age recipient (P5). Tests never touch it: they use a throwaway key with `sops --config <temp>`.
+
+## OpenTofu conventions (`infra/tofu/upcloud/`)
+
+- Provider source is `UpCloudLtd/upcloud` (exact version in `versions.tf`, hash-pinned by the committed `.terraform.lock.hcl`). Credentials only via `UPCLOUD_TOKEN`.
+- Cloud-init is passed as `user_data` from files rendered by `infra/host/scripts/render-cloud-init.sh` into the gitignored `.tofu-rendered/`; `ignore_changes = [user_data]` (first boot only).
+- Firewall rules are stateless: every outbound protocol the hosts use needs an inbound return rule (`firewall.tf` `return_rules`). Keep each server under 20 rules (`firewall_rule_counts` output).
+- State and tfvars stay local; commit them only as `*.sops` (rules in `.sops.yaml`).
 
 ## Host conventions (`infra/host/`)
 

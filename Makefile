@@ -82,6 +82,10 @@ secrets-push: ## Decrypt and deliver secrets to HOST=edge|core over WireGuard (D
 secrets-check: ## SOPS round trip with a throwaway key, schema vs references, generators, dry-run push
 	scripts/test/secrets-roundtrip.sh
 
+.PHONY: tofu-check
+tofu-check: ## Static checks for infra/tofu/upcloud (fmt, init -backend=false, validate, tflint, trivy config); no credentials needed
+	scripts/test/tofu-check.sh
+
 .PHONY: host-check
 host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules) in ubuntu:26.04 containers
 	scripts/test/host-config.sh
