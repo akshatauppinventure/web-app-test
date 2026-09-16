@@ -1,0 +1,32 @@
+# Portainer Server on VPS-B, started by cloud-init as its own project (ADR-0006 amendment):
+# docker compose -p portainer -f /etc/app/bootstrap/portainer-server.compose.yaml up -d
+name: portainer
+services:
+  portainer:
+    image: portainer/portainer-ce:2.45.0-alpine@sha256:e6b0225f4bbc989e398c85062f7426f8cf4b61f8aca6f40bf44789d1dada1949
+    command: ["--admin-password-file", "/run/secrets/portainer_admin_password", "--no-analytics"]
+    environment:
+      AGENT_SECRET_FILE: /run/secrets/portainer_agent_secret
+    secrets:
+      - portainer_agent_secret
+      - portainer_admin_password
+    ports:
+      - "10.10.0.2:9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # root-equivalent by design (ADR-0006); WireGuard-only UI
+      - portainer-data:/data
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options: { max-size: "10m", max-file: "5" }
+    mem_limit: 512m
+    pids_limit: 256
+secrets:
+  portainer_agent_secret:
+    file: /etc/app/secrets/portainer_agent_secret
+  portainer_admin_password:
+    file: /etc/app/secrets/portainer_admin_password
+volumes:
+  portainer-data:

@@ -1,0 +1,6 @@
+[Unit]
+Description=Weekly restic repository check (ADR-0021)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/restic-check.sh

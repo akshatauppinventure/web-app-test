@@ -1,0 +1,47 @@
+#!/usr/sbin/nft -f
+# VPS-A "edge" host firewall (ADR-0014 layer 2). Input/forward policy DROP; IPv6 dropped except
+# ICMPv6 essentials. Public interface name is substituted by cloud-init (__PUBLIC_IF__).
+flush ruleset
+
+define PUBLIC_IF = "__PUBLIC_IF__"
+define WG_IF = "wg0"
+define WG_NET = 10.10.0.0/24
+define ADMIN_PEERS = { 10.10.0.10-10.10.0.19 }
+define CORE_HOST = 10.10.0.2
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif "lo" accept
+    ct state established,related accept
+    ct state invalid drop
+
+    # ICMP essentials, rate-limited echo
+    ip protocol icmp icmp type { destination-unreachable, time-exceeded, parameter-problem } accept
+    ip protocol icmp icmp type echo-request limit rate 10/second accept
+    ip6 nexthdr icmpv6 icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+    # Public services: HTTP/HTTPS to Traefik (DNAT'd to the container; see forward) and WireGuard
+    iifname $PUBLIC_IF udp dport 51820 accept
+
+    # Admin SSH only over WireGuard from admin peers
+    iifname $WG_IF ip saddr $ADMIN_PEERS tcp dport 22 accept
+
+    # Everything else (including IPv6 and any port Docker might publish on the host) is dropped.
+    counter drop
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+    # Docker inserts its own forward rules via iptables-nft (table ip filter, chain DOCKER-USER).
+    # This chain only sees what Docker did not already accept/drop; keep the default DROP.
+    ct state established,related accept
+    ct state invalid drop
+    counter drop
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}

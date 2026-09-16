@@ -40,7 +40,7 @@ check_file() {
 cd "$ROOT"
 while IFS= read -r f; do
   case "$f" in
-    infra/stacks/*) check_file "$f" stack ;;
+    infra/stacks/*|infra/host/bootstrap/*) check_file "$f" stack ;;
     *) check_file "$f" other ;;
   esac
 done < <(git ls-files 'compose*.yaml' 'compose*.yml' 'infra/stacks/*/compose.yaml' 'infra/host/bootstrap/*.compose.yaml' | sort -u)

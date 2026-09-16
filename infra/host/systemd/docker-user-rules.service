@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply DOCKER-USER firewall rules (ADR-0014)
+After=docker.service nftables.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/app/host.env
+ExecStart=/usr/local/sbin/docker-user-rules.sh ${HOST_ROLE}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target docker.service

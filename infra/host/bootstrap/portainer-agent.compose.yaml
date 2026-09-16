@@ -1,0 +1,27 @@
+# Portainer Agent on VPS-A, started by cloud-init as its own project (ADR-0006 amendment):
+# docker compose -p portainer -f /etc/app/bootstrap/portainer-agent.compose.yaml up -d
+name: portainer
+services:
+  agent:
+    image: portainer/agent:2.45.0-alpine@sha256:2a0e0fd85636b04b3e816b1c52ede8b3bf44e42420a0bbf2d9962ae8bfe6fea8
+    environment:
+      AGENT_SECRET_FILE: /run/secrets/portainer_agent_secret
+    secrets:
+      - portainer_agent_secret
+    ports:
+      - "10.10.0.1:9001:9001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # root-equivalent by design (ADR-0006); reachable only from 10.10.0.2
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: local
+      options: { max-size: "10m", max-file: "5" }
+    mem_limit: 256m
+    pids_limit: 128
+secrets:
+  portainer_agent_secret:
+    file: /etc/app/secrets/portainer_agent_secret
+volumes: {}

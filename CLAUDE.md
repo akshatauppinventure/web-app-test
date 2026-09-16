@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, `wg-quick strip`, DOCKER-USER rules) in `ubuntu:26.04` containers.
 - `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
 - `make crowdsec-test` — after `make traefik-test`: bouncer registration, collections, AppSec detect-only, manual ban → 403, fail-open.
 - `make traefik-test` — Traefik image + whoami upstreams on `127.0.0.1:18443` and `scripts/test/traefik-routes.sh` (routing, `/auth/admin` 404, headers, redirect, body limits, 429s, sniStrict). Run after any change under `infra/traefik/`.
@@ -53,6 +54,13 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Ports bind to `127.0.0.1` locally; in the stacks (T16) only Traefik binds `0.0.0.0`.
 - Secrets are Compose `secrets:` (files), never environment variables. Apps read `*_FILE` or `/run/secrets/<name>`; the migrate job uses `DATABASE_URL_FILE`.
 - Network `db` is `internal: true` with subnet `172.28.1.0/24` (fixed by `pg_hba.conf`); `core` is `172.28.2.0/24`. The test compose uses the same `db` subnet, so the dev stack and `make test-db-up` cannot run at the same time (`make dev-down` first; the Makefile guards this).
+
+## Host conventions (`infra/host/`)
+
+- The committed scripts/units/configs are the source of truth; `scripts/render-cloud-init.sh` embeds them into the cloud-init templates at render time. Never edit rendered output by hand.
+- Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain. WireGuard private keys are generated on the host at first boot; only public keys go into `wireguard/peers.yaml`.
+- Host scripts read secrets from `/etc/app/secrets/<name>` and role settings from `/etc/app/host.env` (`HOST_ROLE`, `PEER_IP`, `PUBLIC_HOST`, `PUBLIC_IF`, `NOTIFY_WEBHOOK_URL`).
+- Validation runs in `ubuntu:26.04` containers (`nft -c` needs `--privileged`; macOS `sed` has no `\|`, so use Python for multi-key substitutions in tests).
 
 ## Container image conventions
 
