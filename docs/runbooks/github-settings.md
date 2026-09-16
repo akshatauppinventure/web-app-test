@@ -53,7 +53,7 @@ gh api -X PATCH repos/akshatauppinventure/web-app-test --input - <<'JSON'
 JSON
 ```
 
-**Result on 2026-09-15:** Dependabot alerts + dependency graph: enabled. Secret scanning: `422 Secret scanning is not available for this repository` (needs GitHub Secret Protection, a paid add-on, on private repos). Compensating control: `gitleaks` runs in CI (T11); re-run the PATCH if the plan changes.
+**Result on 2026-09-15:** Dependabot alerts + dependency graph: enabled. `actions/dependency-review-action` also needs Advanced Security on a private repo and is `continue-on-error` in `ci.yml` until P12 is resolved (upgrade to Pro does **not** include it; it needs the GHAS/Code Security add-on or a public repo). Secret scanning: `422 Secret scanning is not available for this repository` (needs GitHub Secret Protection, a paid add-on, on private repos). Compensating control: `gitleaks` runs in CI (T11); re-run the PATCH if the plan changes.
 
 Applied on 2026-09-15 via API: merge commits off (squash/rebase only), auto-delete head branches on, wiki and projects off.
 

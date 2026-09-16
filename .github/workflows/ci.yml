@@ -310,8 +310,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_SUMMARY: "true"
+      # Needs GitHub Advanced Security on private repos (not on the Free plan, see P12 in
+      # docs/runbooks/github-settings.md); non-blocking until the plan allows it.
       - name: Dependency review
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           config-file: .github/dependency-review-config.yml
