@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make secrets-check` — SOPS/age round trip with a throwaway key, `infra/secrets/SCHEMA.md` vs every referenced secret, generator coverage, dry-run push. `make secrets-gen` / `secrets-encrypt SRC=` / `secrets-push HOST=` are the owner's workflow (`docs/runbooks/secrets.md`).
 - `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, `wg-quick strip`, DOCKER-USER rules) in `ubuntu:26.04` containers.
 - `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
 - `make crowdsec-test` — after `make traefik-test`: bouncer registration, collections, AppSec detect-only, manual ban → 403, fail-open.
@@ -54,6 +55,13 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Ports bind to `127.0.0.1` locally; in the stacks (T16) only Traefik binds `0.0.0.0`.
 - Secrets are Compose `secrets:` (files), never environment variables. Apps read `*_FILE` or `/run/secrets/<name>`; the migrate job uses `DATABASE_URL_FILE`.
 - Network `db` is `internal: true` with subnet `172.28.1.0/24` (fixed by `pg_hba.conf`); `core` is `172.28.2.0/24`. The test compose uses the same `db` subnet, so the dev stack and `make test-db-up` cannot run at the same time (`make dev-down` first; the Makefile guards this).
+
+## Secrets conventions (`infra/secrets/`, `scripts/secrets/`)
+
+- `SCHEMA.md` is the contract: every `file: /etc/app/secrets/<name>` in stacks/bootstrap and every `$SECRETS/<name>` in host scripts must have a row, and `gen-secrets.sh` must emit exactly the schema's names per host (`scripts/secrets/check-schema.sh`).
+- Values shared by both hosts are generated once and copied with `--shared-from`; owner-supplied values are `CHANGE_ME` markers until filled.
+- `secrets-push.sh` maps each name to a path, owner UID and mode; a secret without a rule fails the push. Values travel only over stdin to `ssh … tee`; never as arguments.
+- The repo's `.sops.yaml` holds the owner's age recipient (P5). Tests never touch it: they use a throwaway key with `sops --config <temp>`.
 
 ## Host conventions (`infra/host/`)
 

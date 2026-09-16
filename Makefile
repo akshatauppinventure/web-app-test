@@ -66,6 +66,22 @@ traefik-verify-plugins: ## Re-verify plugin tarball checksums in infra/traefik/p
 crowdsec-test: ## CrowdSec engine + bouncer checks against the running Traefik test stack
 	scripts/test/crowdsec.sh
 
+SECRETS_TMP ?= $(shell mktemp -d 2>/dev/null || echo /tmp/secrets-gen)
+
+.PHONY: secrets-gen secrets-encrypt secrets-push secrets-check
+secrets-gen: ## Generate plaintext edge+core secrets into a private temp dir (encrypt with secrets-encrypt SRC=<dir>)
+	@umask 077; scripts/secrets/gen-secrets.sh core $(SECRETS_TMP)/core.yaml && scripts/secrets/gen-secrets.sh edge $(SECRETS_TMP)/edge.yaml --shared-from $(SECRETS_TMP)/core.yaml
+	@echo "edit the CHANGE_ME values, then: make secrets-encrypt SRC=$(SECRETS_TMP)"
+secrets-encrypt: ## Encrypt SRC/{edge,core}.yaml to infra/secrets/*.sops.yaml with .sops.yaml recipients, then shred the plaintext
+	@test -n "$(SRC)" || (echo "SRC=<dir> required"; exit 1)
+	@for h in edge core; do sops --encrypt --input-type yaml --output-type yaml --filename-override infra/secrets/$$h.sops.yaml $(SRC)/$$h.yaml > infra/secrets/$$h.sops.yaml && rm -P $(SRC)/$$h.yaml 2>/dev/null || rm -f $(SRC)/$$h.yaml; done
+	@echo "encrypted infra/secrets/{edge,core}.sops.yaml"
+secrets-push: ## Decrypt and deliver secrets to HOST=edge|core over WireGuard (DRY=1 to only print destinations)
+	@test -n "$(HOST)" || (echo "HOST=edge|core required"; exit 1)
+	scripts/secrets/secrets-push.sh $(HOST) $(if $(DRY),--dry-run,)
+secrets-check: ## SOPS round trip with a throwaway key, schema vs references, generators, dry-run push
+	scripts/test/secrets-roundtrip.sh
+
 .PHONY: host-check
 host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules) in ubuntu:26.04 containers
 	scripts/test/host-config.sh
