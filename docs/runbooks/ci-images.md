@@ -38,4 +38,4 @@ GitHub → Actions → **build-publish** → *Run workflow* (`all = true`), or `
 
 ## Pulling on the servers (T21)
 
-Portainer uses a dedicated read-only credential (`read:packages` classic token of a machine user, or a fine-grained token if GHCR supports it at setup time), never a personal token. Packages stay **private** (P3).
+Portainer uses a dedicated read-only credential (`read:packages` classic token of a machine user, or a fine-grained token if GHCR supports it at setup time), never a personal token. Packages stay **private** (P3): the last step of every publish run requests `tags/list` for the package with an anonymous token and fails the run if GHCR answers 200.
