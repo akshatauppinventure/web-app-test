@@ -38,8 +38,16 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
 - `make keycloak-image` / `make keycloak-smoke` — build the Keycloak image and run the smoke test against Postgres + Keycloak on `127.0.0.1:18080` (compose profile `keycloak`). Run the smoke test for every Keycloak or extension bump.
+- `make dev-up` / `make dev-smoke` / `make dev-logs` / `make dev-down` / `make dev-reset` — local full stack from `compose.dev.yaml` (`docs/dev-setup.md`). `dev-smoke` runs the health checks and a real sign-in/sign-out. Run it after any change to auth, realm, compose or images.
 - `make frontend-image` / `make frontend-image-test` — build `web-app-test/frontend:dev` and run `scripts/test/frontend-image.sh` (uid 1000, read-only FS with tmpfs `/app/.next/cache`, no npm, `/api/healthz`, no `X-Powered-By`, labels, HEALTHCHECK).
 - `make backend-image` / `make backend-image-test` — build `web-app-test/backend:dev` and run `scripts/test/backend-image.sh` (uid 10001, read-only FS, no uv/pip, `/healthz`, OCI labels, HEALTHCHECK). `make hadolint` lints all Dockerfiles with `.hadolint.yaml` (warnings fail).
+
+## Compose conventions
+
+- Every service: `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, `mem_limit`, `pids_limit`, healthcheck; writable paths are `tmpfs`. Postgres adds back only the caps its entrypoint needs.
+- Ports bind to `127.0.0.1` locally; in the stacks (T16) only Traefik binds `0.0.0.0`.
+- Secrets are Compose `secrets:` (files), never environment variables. Apps read `*_FILE` or `/run/secrets/<name>`; the migrate job uses `DATABASE_URL_FILE`.
+- Network `db` is `internal: true` with subnet `172.28.1.0/24` (fixed by `pg_hba.conf`); `core` is `172.28.2.0/24`. The test compose uses the same `db` subnet, so the dev stack and `make test-db-up` cannot run at the same time (`make dev-down` first; the Makefile guards this).
 
 ## Container image conventions
 
@@ -92,4 +100,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T06 Frontend scaffold | done | #5, #6 |
 | T07 Frontend auth (Auth.js BFF) and /hello | done | #8 |
 | T08 Frontend container image | done | #9 |
-| T09–T25 | not started | — |
+| T09 Local full stack + dev docs | done (Google login pending owner P2) | #10 |
+| T10–T25 | not started | — |
