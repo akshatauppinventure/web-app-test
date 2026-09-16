@@ -65,7 +65,15 @@ Applied on 2026-09-15 via API: merge commits off (squash/rebase only), auto-dele
 
 ## 4. Renovate and Dependabot (T10)
 
-Extended in T10: install the Renovate GitHub App on this repository only; leave Dependabot **security updates** off (Renovate opens the update PRs) but keep Dependabot **alerts** on.
+Configuration: `renovate.json` (validated locally with `npx --yes --package renovate@44.93.5 renovate-config-validator renovate.json`; also run in CI from T11).
+
+**Owner action (P13):** install the **Renovate GitHub App** (https://github.com/apps/renovate) → *Configure* → select **Only select repositories** → `akshatauppinventure/web-app-test`. Renovate then opens an onboarding PR (merge it; it only confirms the existing config) and creates the issue *Dependency dashboard (Renovate)*.
+
+Expected in the dashboard after onboarding: managers `dockerfile`, `docker-compose`, `github-actions`, `npm` (pnpm), `pep621` (uv) and the two `regex` custom managers (`ARG *_VERSION` in Dockerfiles, `packageManager` in `frontend/package.json`).
+
+How updates arrive (ADR-0019/0020): every non-major update waits 3 days after release, then lands in a weekly Monday batch per ecosystem (`github-actions`, `backend python deps`, `frontend npm deps`, `container images`); majors are listed on the dashboard and open only when ticked; vulnerability alerts (GitHub + OSV) open immediately with the `security` label; Keycloak updates open immediately. The Keycloak Apple extension bump only changes the version — update `infra/keycloak/checksums.txt` and the `ADD --checksum` line by hand (CI fails until then).
+
+Dependabot: keep **alerts** on (enabled in step 2); leave Dependabot **security updates / version updates** off so Renovate is the only bot opening PRs.
 
 ## 5. GitHub App for deploy PRs (P4, T13)
 

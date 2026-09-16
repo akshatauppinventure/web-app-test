@@ -41,6 +41,7 @@ _Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`
 | P10 | T23 | Create **UpCloud Managed Object Storage** (region US-1) bucket + access key scoped to it | Core secrets |
 | P11 | T24 | (Optional) free external uptime monitor account | ADR-0024 |
 | P12 | T00 | **Decide:** upgrade to GitHub Pro so the `main` ruleset can be enforced on the private repo, or accept process-only protection for the POC (see `docs/runbooks/github-settings.md`) | Repo ruleset |
+| P13 | T10 | Install the **Renovate GitHub App** on the repository (steps in `docs/runbooks/github-settings.md` §4) | Dependency PRs |
 
 Not needed for the POC: a domain, Apple Developer Program, Cloudflare.
 
