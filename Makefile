@@ -63,6 +63,8 @@ traefik-test: ## Start the Traefik test stack (whoami upstreams, 127.0.0.1:18443
 	scripts/test/traefik-routes.sh
 traefik-verify-plugins: ## Re-verify plugin tarball checksums in infra/traefik/plugins.lock against upstream
 	infra/traefik/scripts/fetch-plugins.sh
+crowdsec-test: ## CrowdSec engine + bouncer checks against the running Traefik test stack
+	scripts/test/crowdsec.sh
 
 .PHONY: keycloak-image keycloak-smoke keycloak-verify-checksums
 keycloak-image: ## Build the Keycloak image (web-app-test/keycloak:dev)

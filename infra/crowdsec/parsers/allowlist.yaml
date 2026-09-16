@@ -1,0 +1,8 @@
+# Never ban the WireGuard admin/site-to-site network (ADR-0013 §7). Installed as a parser
+# whitelist in s02-enrich so decisions are never created for these sources.
+name: poc/wireguard-allowlist
+description: "Allowlist the WireGuard network (admin peers and the core host)"
+whitelist:
+  reason: "WireGuard admin peers and site-to-site traffic"
+  cidr:
+    - "10.10.0.0/24"

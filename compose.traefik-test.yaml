@@ -15,6 +15,9 @@ services:
       PUBLIC_HOST: test-vinayak.duckdns.org
       FRONTEND_UPSTREAM: http://frontend:80
       KEYCLOAK_UPSTREAM: http://keycloak:80
+      FORWARDED_TRUSTED_IPS: 172.28.3.0/24            # test only: lets curl simulate client IPs via X-Forwarded-For
+      CROWDSEC_FORWARDED_TRUSTED_IPS: 172.28.3.0/24
+      CROWDSEC_UPDATE_INTERVAL_SECONDS: "3"
     secrets:
       - crowdsec_bouncer_key
     ports:
@@ -66,13 +69,54 @@ services:
     mem_limit: 64m
     pids_limit: 32
 
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.1@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+    environment:
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/base-http-scenarios crowdsecurity/sshd crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules"
+      DISABLE_ONLINE_API: "true"       # tests: no CAPI / console; the POC enrolls (README)
+      USE_WAL: "true"
+      NO_HUB_UPGRADE: "false"
+    secrets:
+      - bouncer_key_traefik
+    volumes:
+      - traefik-logs-test:/var/log/traefik:ro
+      - crowdsec-config-test:/etc/crowdsec
+      - crowdsec-data-test:/var/lib/crowdsec/data
+      # individual files (the entrypoint rsyncs /etc/crowdsec and needs the directories writable)
+      - ./infra/crowdsec/acquis.d/traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro
+      - ./infra/crowdsec/acquis.d/sshd.yaml:/etc/crowdsec/acquis.d/sshd.yaml:ro
+      - ./infra/crowdsec/acquis.d/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      - ./infra/crowdsec/config/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
+      - ./infra/crowdsec/parsers/allowlist.yaml:/etc/crowdsec/parsers/s02-enrich/poc-allowlist.yaml:ro
+      - ./infra/crowdsec/appsec/poc-appsec-detect.yaml:/etc/crowdsec/appsec-configs/poc-appsec-detect.yaml:ro
+    networks: [edge]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    mem_limit: 512m
+    pids_limit: 256
+
 secrets:
   crowdsec_bouncer_key:
+    file: ./scripts/test/pg-secrets/crowdsec_bouncer_key
+  bouncer_key_traefik:
     file: ./scripts/test/pg-secrets/crowdsec_bouncer_key
 
 volumes:
   letsencrypt-test:
   traefik-logs-test:
+  crowdsec-config-test:
+  crowdsec-data-test:
 
 networks:
   edge:

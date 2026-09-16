@@ -1,0 +1,7 @@
+# Hub collections installed at container start (COLLECTIONS env in compose; ADR-0013 §1).
+crowdsecurity/traefik
+crowdsecurity/http-cve
+crowdsecurity/base-http-scenarios
+crowdsecurity/sshd
+crowdsecurity/appsec-virtual-patching
+crowdsecurity/appsec-generic-rules

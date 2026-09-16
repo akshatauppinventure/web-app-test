@@ -1,0 +1,6 @@
+# Traefik JSON access log, shared read-only from the traefik container (ADR-0013 §1).
+source: file
+filenames:
+  - /var/log/traefik/access.log
+labels:
+  type: traefik
