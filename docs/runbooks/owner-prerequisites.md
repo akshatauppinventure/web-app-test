@@ -8,10 +8,10 @@
 
 | # | Item | Unblocks | Effort |
 |---|---|---|---|
-| P14 | Grant the `gh` token the `workflow` scope | T11 CI, then T12, T13 | 2 min |
+| P14 | `gh` token `workflow` scope — **done** | T11 CI, then T12, T13 | — |
 | P13 | Install the Renovate GitHub App | T10 completion (dependency PRs) | 3 min |
 | P12 | Decide: GitHub Pro (enforced ruleset) or process-only protection | ADR-0017 §1 | 5 min |
-| P4 | Create + install the deploy GitHub App, store its ID and key as repo secrets | T13 | 10 min |
+| P4 | Deploy GitHub App + repo secrets — **done** (`web-app-test-deploy[bot]` opens deploy PRs) | T13 | — |
 | P3 | GHCR packages private — **done** (CI enforces it on every publish) | ADR-0017 §5, T13 | — |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files | T19 completion, T20–T22 | 15 min |

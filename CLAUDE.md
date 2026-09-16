@@ -169,5 +169,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T17 Host configuration (cloud-init, nftables, WireGuard, Docker, timers) | done | #15 |
 | T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
 | T19 Secrets tooling (SOPS + age) | done (encrypted files pending owner P5) | #16 |
-| T13 deploy-PR bot + digest verification | done | #36 |
+| T13 deploy-PR bot + digest verification | done; six deploy PRs #39–#44 verified and auto-merged, negative PR #38 failed at cosign verify | #36, #37, #45 |
 | T20–T25 | not started | — |
