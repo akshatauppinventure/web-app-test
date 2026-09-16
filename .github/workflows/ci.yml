@@ -59,8 +59,10 @@ jobs:
               - 'compose.test.yaml'
             traefik:
               - 'infra/traefik/**'
+              - 'infra/crowdsec/**'
               - 'compose.traefik-test.yaml'
               - 'scripts/test/traefik-*.sh'
+              - 'scripts/test/crowdsec.sh'
             stack:
               - 'backend/**'
               - 'frontend/**'
@@ -207,6 +209,8 @@ jobs:
           docker compose -f compose.traefik-test.yaml up -d --build --wait
       - name: Route, header, limit and TLS checks
         run: scripts/test/traefik-routes.sh
+      - name: CrowdSec bouncer, AppSec and fail-open checks
+        run: scripts/test/crowdsec.sh
       - name: Logs on failure
         if: failure()
         run: docker compose -f compose.traefik-test.yaml logs traefik | tail -100
