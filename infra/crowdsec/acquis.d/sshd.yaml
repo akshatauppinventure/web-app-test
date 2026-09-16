@@ -1,0 +1,7 @@
+# Host sshd log (only reachable over WireGuard, ADR-0015). Mounted read-only by the edge stack (T16);
+# absent in the local test, which CrowdSec tolerates with a warning.
+source: file
+filenames:
+  - /var/log/host/auth.log
+labels:
+  type: syslog

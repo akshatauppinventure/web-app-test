@@ -1,0 +1,10 @@
+# Phase 1 AppSec configuration (ADR-0013 §3): every rule runs in-band but the remediation is
+# `allow`, so matches are logged and counted (cscli metrics) without blocking. T25 switches
+# default_remediation to `ban` (phase 2) after two weeks of false-positive review.
+name: poc/appsec-detect
+default_remediation: allow
+log_level: info
+inband_rules:
+  - crowdsecurity/vpatch-*
+  - crowdsecurity/generic-*
+outofband_rules: []

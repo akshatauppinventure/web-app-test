@@ -68,7 +68,7 @@ http:
           enabled: true
           logLevel: INFO
           crowdsecMode: stream
-          updateIntervalSeconds: 60
+          updateIntervalSeconds: {{ or (env "CROWDSEC_UPDATE_INTERVAL_SECONDS") "60" }}
           updateMaxFailure: -1        # never block because LAPI is unreachable (fail-open, ADR-0013 §4)
           defaultDecisionSeconds: 60
           crowdsecLapiScheme: http
@@ -81,7 +81,9 @@ http:
           crowdsecAppsecBodyLimit: 1048576
           httpTimeoutSeconds: 10
           clientTrustedIPs: []
-          forwardedHeadersTrustedIPs: []
+          # empty in the POC (no upstream proxy); the test stack trusts its Docker gateway so that
+          # X-Forwarded-For can simulate banned clients
+          forwardedHeadersTrustedIPs: [{{ env "CROWDSEC_FORWARDED_TRUSTED_IPS" }}]
           banHTTPCode: 403
 
     # 404 for anything that must not be reachable (Keycloak admin/console, unknown hosts).

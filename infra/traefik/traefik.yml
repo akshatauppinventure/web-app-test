@@ -44,6 +44,7 @@ entryPoints:
         allowEncodedQuestionMark: false
     forwardedHeaders:
       insecure: false
+      trustedIPs: [__FORWARDED_TRUSTED_IPS__]   # empty in the POC (no upstream proxy; ADR-0012 §4)
   websecure:
     address: ":8443"        # published as 0.0.0.0:443
     http:
@@ -60,6 +61,7 @@ entryPoints:
       maxConcurrentStreams: 250
     forwardedHeaders:
       insecure: false
+      trustedIPs: [__FORWARDED_TRUSTED_IPS__]
     transport:
       respondingTimeouts:
         readTimeout: 30s
