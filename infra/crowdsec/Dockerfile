@@ -11,6 +11,8 @@ LABEL org.opencontainers.image.title="web-app-test crowdsec" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.base.name="crowdsecurity/crowdsec:v1.8.1"
+# OS security updates (pinned base digest lags Alpine's repo; ADR-0019 §3 gate).
+RUN apk upgrade --no-cache
 COPY acquis.d/ /staging/etc/crowdsec/acquis.d/
 COPY config/profiles.yaml /staging/etc/crowdsec/profiles.yaml
 COPY parsers/allowlist.yaml /staging/etc/crowdsec/parsers/s02-enrich/poc-allowlist.yaml

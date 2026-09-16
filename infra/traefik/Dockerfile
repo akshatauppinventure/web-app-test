@@ -26,7 +26,9 @@ LABEL org.opencontainers.image.title="web-app-test traefik" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.base.name="traefik:v3.7.13"
 
-RUN addgroup -g 65532 -S traefik && adduser -u 65532 -S -G traefik -H -s /sbin/nologin traefik \
+# OS security updates (pinned base digest lags Alpine's repo; ADR-0019 §3 gate).
+RUN apk upgrade --no-cache \
+    && addgroup -g 65532 -S traefik && adduser -u 65532 -S -G traefik -H -s /sbin/nologin traefik \
     && mkdir -p /letsencrypt /var/log/traefik /etc/traefik/dynamic \
     && chown 65532:65532 /letsencrypt /var/log/traefik && chmod 700 /letsencrypt
 COPY --from=plugins --chown=root:root /plugins-local /plugins-local
