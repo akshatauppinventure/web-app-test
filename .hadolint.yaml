@@ -4,4 +4,8 @@ trustedRegistries:
   - docker.io
   - ghcr.io
   - quay.io
-ignored: []
+ignored:
+  # Distro security updates are applied at build time on purpose (ADR-0019 §3): the pinned base
+  # digests lag the security repos and the Trivy gate must pass; Renovate refreshes the digests.
+  - DL3005   # apt-get upgrade
+  - DL3017   # apk upgrade

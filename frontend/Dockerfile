@@ -12,7 +12,7 @@ ARG PNPM_VERSION=12.4.2
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     CI=true
-RUN npm install -g "pnpm@${PNPM_VERSION}" && npm cache clean --force
+RUN apk upgrade --no-cache && npm install -g "pnpm@${PNPM_VERSION}" && npm cache clean --force
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
@@ -37,8 +37,10 @@ LABEL org.opencontainers.image.title="web-app-test frontend" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="akshatauppinventure"
 
-# Nothing installs at runtime: drop npm, npx, yarn and corepack from the base image.
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
+# OS security updates (pinned base digest lags Alpine's repo; ADR-0019 §3 gate), then drop npm,
+# npx, yarn and corepack: nothing installs at runtime.
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
            /usr/local/bin/yarn /usr/local/bin/yarnpkg /usr/local/bin/corepack /opt/yarn* \
     && mkdir -p /app/.next/cache && chown -R node:node /app
 

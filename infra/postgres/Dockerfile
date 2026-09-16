@@ -11,6 +11,11 @@ LABEL org.opencontainers.image.title="web-app-test postgres" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.base.name="postgres:18.6-trixie"
+# OS security updates: the pinned base digest lags Debian's security repo (ADR-0019 §3 gate).
+# gosu is only used by the entrypoint to drop from root to postgres; this image never starts as
+# root (USER 999 below), so the statically linked Go binary and its CVEs are removed.
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/local/bin/gosu
 COPY --chown=root:root --chmod=755 initdb/01-roles.sh /docker-entrypoint-initdb.d/01-roles.sh
 COPY --chown=root:root --chmod=644 initdb/02-hardening.sql /docker-entrypoint-initdb.d/02-hardening.sql
 COPY --chown=root:root --chmod=644 postgresql.conf pg_hba.conf /etc/postgresql/

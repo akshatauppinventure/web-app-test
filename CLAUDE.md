@@ -34,6 +34,10 @@ Jobs: `changes` (path filter) → `backend` (uv, ruff, pyright, pytest with `TES
 
 Local equivalents before pushing: `make backend-check`, `make frontend-check`, `make hadolint`, `shellcheck $(git ls-files '*.sh')`, `scripts/ci/check-compose.sh`, `scripts/ci/check-published-ports.sh`, `uvx zizmor --config zizmor.yml .github/workflows/*.yml`, `gitleaks git --config .gitleaks.toml .`.
 
+## Images (`.github/workflows/build-publish.yml`)
+
+PRs build + Trivy-gate changed components without pushing; pushes to `main` gate, then push `ghcr.io/akshatauppinventure/<component>:sha-<sha>` with SBOM + provenance and cosign keyless signatures. `scripts/ci/changed-components.sh` maps paths to components (workflow/script/`.trivyignore` changes rebuild all). Exceptions go in `.trivyignore` with `exp:` dates. Runbook: `docs/runbooks/ci-images.md`.
+
 ## Commands
 
 Targets are added to the `Makefile` as tasks land; `make help` lists them. Until then a stub target fails with the task id that will implement it.

@@ -38,8 +38,10 @@ LABEL org.opencontainers.image.title="web-app-test backend" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="akshatauppinventure"
 
-# Non-root user; drop pip from the base image (nothing installs at runtime; less surface).
-RUN groupadd --gid 10001 app \
+# OS security updates (the pinned base digest lags Debian's security repo; ADR-0019 §3 gate),
+# non-root user, and drop pip from the base image (nothing installs at runtime; less surface).
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app \
     && python -m pip uninstall --yes pip \
     && rm -rf /root/.cache /usr/local/lib/python3.14/site-packages/pip* /usr/local/bin/pip*
