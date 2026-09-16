@@ -1,5 +1,7 @@
 # Throwaway PostgreSQL 18 for backend integration/RLS tests (T02) and Keycloak smoke tests (T05).
-# Usage: docker compose -f compose.test.yaml up -d --wait ; ... ; docker compose -f compose.test.yaml down -v
+# Usage: docker compose -f compose.test.yaml up -d --wait                       # postgres only
+#        docker compose -f compose.test.yaml --profile keycloak up -d --wait    # + keycloak on 127.0.0.1:18080
+#        docker compose -f compose.test.yaml --profile keycloak down -v
 name: web-app-test-test
 
 services:
@@ -43,6 +45,54 @@ services:
     mem_limit: 512m
     pids_limit: 256
 
+  keycloak:
+    profiles: ["keycloak"]
+    build:
+      context: ./infra/keycloak
+    image: web-app-test/keycloak:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
+      KC_HOSTNAME: http://localhost:18080/auth
+      KC_HOSTNAME_STRICT: "false"
+      GOOGLE_CLIENT_ID: test-google-client-id.apps.googleusercontent.com
+      WEB_BFF_CLIENT_SECRET_FILE: /run/secrets/web_bff_client_secret
+    secrets:
+      - keycloak_db_password
+      - keycloak_admin_password
+      - web_bff_client_secret
+      - app_google_client_secret
+    ports:
+      - "127.0.0.1:18080:8080"
+    networks:
+      - db
+    healthcheck:
+      # The image has no curl; use bash's /dev/tcp against the management port (9000).
+      test:
+        - CMD-SHELL
+        - 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf ''GET /auth/health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n'' >&3 && grep -q ''"status": "UP"'' <&3'
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/keycloak/data/tmp:rw,size=64m
+      - /opt/keycloak/data/transaction-logs:rw,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    pids_limit: 512
+
 secrets:
   postgres_password:
     file: ./scripts/test/pg-secrets/postgres_password
@@ -52,6 +102,12 @@ secrets:
     file: ./scripts/test/pg-secrets/app_rw_password
   keycloak_db_password:
     file: ./scripts/test/pg-secrets/keycloak_db_password
+  keycloak_admin_password:
+    file: ./scripts/test/pg-secrets/keycloak_admin_password
+  web_bff_client_secret:
+    file: ./scripts/test/pg-secrets/web_bff_client_secret
+  app_google_client_secret:
+    file: ./scripts/test/pg-secrets/app_google_client_secret
 
 volumes:
   pgdata-test:

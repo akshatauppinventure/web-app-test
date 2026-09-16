@@ -45,8 +45,20 @@ frontend-image-test: ## Run hardening checks against the frontend image (T08)
 .PHONY: test-db-up test-db-down
 test-db-up: ## Start the throwaway Postgres for integration tests (127.0.0.1:55432)
 	docker compose -f compose.test.yaml up -d --wait
-test-db-down: ## Stop the throwaway test Postgres and delete its volume
-	docker compose -f compose.test.yaml down -v
+test-db-down: ## Stop the throwaway test Postgres (+ Keycloak) and delete volumes
+	docker compose -f compose.test.yaml --profile keycloak down -v
+
+.PHONY: keycloak-image keycloak-smoke keycloak-verify-checksums
+keycloak-image: ## Build the Keycloak image (web-app-test/keycloak:dev)
+	docker compose -f compose.test.yaml --profile keycloak build keycloak
+keycloak-smoke: ## Start Postgres + Keycloak (127.0.0.1:18080) and run infra/keycloak/scripts/smoke.sh
+	docker compose -f compose.test.yaml --profile keycloak up -d --wait
+	KC_ADMIN_PASSWORD_FILE=scripts/test/pg-secrets/keycloak_admin_password \
+	WEB_BFF_CLIENT_SECRET_FILE=scripts/test/pg-secrets/web_bff_client_secret \
+	GOOGLE_CLIENT_ID=test-google-client-id.apps.googleusercontent.com \
+	infra/keycloak/scripts/smoke.sh http://localhost:18080/auth
+keycloak-verify-checksums: ## Re-verify third-party artifacts in infra/keycloak/checksums.txt against upstream
+	infra/keycloak/scripts/verify-checksums.sh
 
 .PHONY: dev-up dev-down dev-logs dev-reset
 dev-up: ## Start the local full stack (T09)

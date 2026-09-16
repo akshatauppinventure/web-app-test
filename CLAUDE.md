@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make keycloak-image` / `make keycloak-smoke` — build the Keycloak image and run the smoke test against Postgres + Keycloak on `127.0.0.1:18080` (compose profile `keycloak`). Run the smoke test for every Keycloak or extension bump.
 - `make backend-image` / `make backend-image-test` — build `web-app-test/backend:dev` and run `scripts/test/backend-image.sh` (uid 10001, read-only FS, no uv/pip, `/healthz`, OCI labels, HEALTHCHECK). `make hadolint` lints all Dockerfiles with `.hadolint.yaml` (warnings fail).
 
 ## Container image conventions
@@ -53,6 +54,13 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - Version floor for `next` is `16.3.3` (`scripts/check-next-version.mts`, tested); CI fails below it (T11).
 - App Router only, TypeScript strict with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. Server-only code imports `server-only` (T07). No client-side token handling, ever.
 - Tests: vitest (node environment) in `frontend/tests/*.test.ts`; test route handlers by importing and calling them.
+
+## Keycloak conventions (`infra/keycloak/`)
+
+- Realm JSON is the source of truth and contains **no secrets**: `${ENV_VAR}` placeholders are substituted once at first import; `${vault.<key>}` reads `/run/secrets/app_<key>` on use (Keycloak file vault, built in with `--vault=file`).
+- Build-time options (`db`, `http-relative-path`, `health`, `metrics`, `vault`) must be passed to `kc.sh build`; runtime env vars cannot change them on an `--optimized` image.
+- Realm-import gotchas learned in T05: `defaultRole.composites` is ignored (define `default-roles-app` inside `roles.realm`); composites can only reference roles defined in the same file (built-ins like `uma_authorization` don't exist yet); users created via `partialImport` do not get default roles, users created via `POST /admin/realms/app/users` do.
+- Third-party jars: record version, URL, sha256 and upstream sha512 in `checksums.txt`; the Dockerfile uses `ADD --checksum=sha256:…`; `scripts/verify-checksums.sh` cross-checks both.
 
 ## Backend conventions (`backend/`)
 
@@ -76,5 +84,6 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T02 DB schema, roles, migrations, RLS | done | #2 |
 | T03 JWT validation and hello endpoints | done | #3 |
 | T04 Backend container image | done | #4 |
-| T06 Frontend scaffold | done | #5 |
-| T05, T07–T25 | not started | — |
+| T05 Keycloak image and `app` realm | done | #7 |
+| T06 Frontend scaffold | done | #5, #6 |
+| T07–T25 | not started | — |

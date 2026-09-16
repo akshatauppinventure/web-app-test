@@ -1,0 +1,4 @@
+# Third-party artifacts baked into the Keycloak image. Verified by the Dockerfile (ADD --checksum, sha256)
+# and by scripts/verify-checksums.sh (sha512 against the upstream .sha512 file). Renovate keeps these in sync (T10).
+# format: <artifact> <version> <url> <sha256> <sha512>
+apple-identity-provider 1.17.0 https://github.com/klausbetz/apple-identity-provider-keycloak/releases/download/1.17.0/apple-identity-provider-1.17.0.jar 4091dee2a1ec9e0771bef4bd46005197d86b0a2b1f25198c41738476b1d102bb 04949c18bd2819f6134f7a8fdf446e471036241c537d451e7bf1c627d8eefb1f72374d238bf0037155e725531c587065cfabf1c3f0b7f0df86fb7138effd6bba
