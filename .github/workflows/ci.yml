@@ -31,6 +31,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       infra: ${{ steps.filter.outputs.infra }}
       keycloak: ${{ steps.filter.outputs.keycloak }}
+      traefik: ${{ steps.filter.outputs.traefik }}
       stack: ${{ steps.filter.outputs.stack }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,6 +57,10 @@ jobs:
               - 'infra/keycloak/**'
               - 'infra/postgres/**'
               - 'compose.test.yaml'
+            traefik:
+              - 'infra/traefik/**'
+              - 'compose.traefik-test.yaml'
+              - 'scripts/test/traefik-*.sh'
             stack:
               - 'backend/**'
               - 'frontend/**'
@@ -184,6 +189,30 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f compose.test.yaml --profile keycloak down -v
+
+  traefik:
+    name: traefik image + routes
+    needs: changes
+    if: needs.changes.outputs.traefik == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Plugin lock matches upstream and Dockerfile
+        run: infra/traefik/scripts/fetch-plugins.sh
+      - name: Build image and start the test stack
+        run: |
+          scripts/test/traefik-test-certs.sh
+          docker compose -f compose.traefik-test.yaml up -d --build --wait
+      - name: Route, header, limit and TLS checks
+        run: scripts/test/traefik-routes.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f compose.traefik-test.yaml logs traefik | tail -100
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.traefik-test.yaml down -v
 
   stack:
     name: local stack e2e
