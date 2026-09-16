@@ -28,6 +28,12 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 | Containers | Docker 29 (arm64 locally; CI builds `linux/amd64`), `hadolint` | Test images with `--read-only --cap-drop ALL --security-opt no-new-privileges` |
 | Infra | `shellcheck`, `docker compose config`, `sops`, `age`, `tofu` (OpenTofu 1.12), `tflint` (release binary in `~/.local/bin`; no brew formula), `trivy` | `brew install sops age opentofu trivy` |
 
+## CI (`.github/workflows/ci.yml`)
+
+Jobs: `changes` (path filter) → `backend` (uv, ruff, pyright, pytest with `TEST_PG_REQUIRED=1` against `compose.test.yaml`), `frontend` (`pnpm check`), `infra policy` (hadolint, shellcheck, `scripts/ci/check-compose.sh`, `scripts/ci/check-published-ports.sh` vs `infra/policy/published-ports.txt`, `check-hardening.py`, Keycloak checksums, Renovate validator, host-config validation, OpenTofu fmt/validate/tflint/trivy, secrets round trip), `keycloak image + smoke`, `traefik image + routes`, `local stack e2e` (dev stack + `scripts/dev/smoke.sh` + image hardening), `shared` (zizmor with `zizmor.yml`, gitleaks with `.gitleaks.toml`, dependency review). On `push` to `main` everything runs; on PRs only the affected jobs. Every action is SHA-pinned with a version comment; `persist-credentials: false`; top-level `permissions: contents: read`.
+
+Local equivalents before pushing: `make backend-check`, `make frontend-check`, `make hadolint`, `shellcheck $(git ls-files '*.sh')`, `scripts/ci/check-compose.sh`, `scripts/ci/check-published-ports.sh`, `uvx zizmor --config zizmor.yml .github/workflows/*.yml`, `gitleaks git --config .gitleaks.toml .`.
+
 ## Commands
 
 Targets are added to the `Makefile` as tasks land; `make help` lists them. Until then a stub target fails with the task id that will implement it.
@@ -147,4 +153,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T08 Frontend container image | done | #9 |
 | T09 Local full stack + dev docs | done (Google login pending owner P2) | #10 |
 | T10 Renovate + repo policy | done (app install pending owner P13) | #11 |
-| T11–T25 | not started | — |
+| T11 CI workflow (lint, test, policy) | done | #12 |
+| T12–T25 | not started | — |
