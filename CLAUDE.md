@@ -38,6 +38,10 @@ Local equivalents before pushing: `make backend-check`, `make frontend-check`, `
 
 PRs build + Trivy-gate changed components without pushing; pushes to `main` gate, then push `ghcr.io/akshatauppinventure/<component>:sha-<sha>` with SBOM + provenance and cosign keyless signatures. `scripts/ci/changed-components.sh` maps paths to components (workflow/script/`.trivyignore` changes rebuild all). Exceptions go in `.trivyignore` with `exp:` dates. Runbook: `docs/runbooks/ci-images.md`.
 
+## Deploys (`verify-deploy.yml`, `scripts/ci/bump-digest.py`)
+
+After every publish, the deploy App opens one `deploy/<component>-<sha>` PR per component that only rewrites that component's `image:` lines. `verify-deploy` cosign-verifies every `ghcr.io` digest in `infra/stacks` + `infra/host/bootstrap` (placeholders `sha256:000…` are skipped), re-runs compose/ports/hardening checks, and squash-merges bot PRs when green. Never hand-edit digests without going through a PR. Runbook: `docs/runbooks/deploy-and-rollback.md`. Tests: `make bump-digest-test`.
+
 ## Commands
 
 Targets are added to the `Makefile` as tasks land; `make help` lists them. Until then a stub target fails with the task id that will implement it.
@@ -165,4 +169,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T17 Host configuration (cloud-init, nftables, WireGuard, Docker, timers) | done | #15 |
 | T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
 | T19 Secrets tooling (SOPS + age) | done (encrypted files pending owner P5) | #16 |
-| T13, T20–T25 | not started | — |
+| T13 deploy-PR bot + digest verification | done | #36 |
+| T20–T25 | not started | — |
