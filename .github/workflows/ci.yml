@@ -1,0 +1,246 @@
+# CI (PLAN T11; ADR-0017 §3, ADR-0019 §1). All actions are pinned to full commit SHAs.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.15"
+  PYTHON_VERSION: "3.14"
+  NODE_VERSION: "24"
+  RENOVATE_VERSION: "44.93.5"
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      infra: ${{ steps.filter.outputs.infra }}
+      keycloak: ${{ steps.filter.outputs.keycloak }}
+      stack: ${{ steps.filter.outputs.stack }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'infra/postgres/**'
+              - 'compose.test.yaml'
+            frontend:
+              - 'frontend/**'
+            infra:
+              - 'infra/**'
+              - 'scripts/**'
+              - 'compose*.yaml'
+              - '.hadolint.yaml'
+              - 'renovate.json'
+            keycloak:
+              - 'infra/keycloak/**'
+              - 'infra/postgres/**'
+              - 'compose.test.yaml'
+            stack:
+              - 'backend/**'
+              - 'frontend/**'
+              - 'infra/keycloak/**'
+              - 'infra/postgres/**'
+              - 'compose.dev.yaml'
+              - 'scripts/dev/**'
+              - 'scripts/test/frontend-e2e.sh'
+
+  backend:
+    name: backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Sync (locked)
+        run: uv sync --locked
+      - name: Ruff lint
+        run: uv run ruff check --output-format github .
+      - name: Ruff format
+        run: uv run ruff format --check .
+      - name: Pyright
+        run: uv run pyright
+      - name: Start test Postgres
+        working-directory: .
+        run: docker compose -f compose.test.yaml up -d --wait
+      - name: Pytest (DB tests required)
+        env:
+          TEST_PG_REQUIRED: "1"
+        run: uv run pytest -q --color=yes
+      - name: Stop test Postgres
+        if: always()
+        working-directory: .
+        run: docker compose -f compose.test.yaml --profile '*' down -v
+
+  frontend:
+    name: frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Next.js version floor, lint, typecheck, tests, build
+        run: pnpm check
+
+  infra:
+    name: infra policy
+    needs: changes
+    if: needs.changes.outputs.infra == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          recursive: true
+          config: .hadolint.yaml
+          failure-threshold: warning
+      - name: shellcheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
+        with:
+          severity: warning
+      - name: Compose files validate
+        run: scripts/ci/check-compose.sh
+      - name: Published ports allowlist
+        run: scripts/ci/check-published-ports.sh
+      - name: Keycloak third-party checksums
+        run: infra/keycloak/scripts/verify-checksums.sh
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Renovate config validator
+        env:
+          LOG_LEVEL: warn
+        run: npx --yes --package "renovate@${RENOVATE_VERSION}" renovate-config-validator renovate.json
+
+  keycloak:
+    name: keycloak image + smoke
+    needs: changes
+    if: needs.changes.outputs.keycloak == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build image and start Postgres + Keycloak
+        run: docker compose -f compose.test.yaml --profile keycloak up -d --build --wait
+      - name: Smoke test (ADR-0010 upgrade gate)
+        env:
+          KC_ADMIN_PASSWORD_FILE: scripts/test/pg-secrets/keycloak_admin_password
+          WEB_BFF_CLIENT_SECRET_FILE: scripts/test/pg-secrets/web_bff_client_secret
+          GOOGLE_CLIENT_ID: test-google-client-id.apps.googleusercontent.com
+        run: infra/keycloak/scripts/smoke.sh http://localhost:18080/auth
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f compose.test.yaml --profile keycloak logs keycloak | tail -200
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml --profile keycloak down -v
+
+  stack:
+    name: local stack e2e
+    needs: [changes, backend, frontend]
+    if: |
+      always() && !cancelled() && !contains(needs.*.result, 'failure')
+      && (needs.changes.outputs.stack == 'true' || github.event_name == 'push')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate dev secrets and .env
+        run: |
+          scripts/dev/gen-dev-secrets.sh
+          cp .env.example .env
+      - name: Build images and start the stack
+        run: |
+          docker compose -f compose.dev.yaml build
+          docker compose -f compose.dev.yaml up -d --wait
+      - name: Smoke + sign-in/sign-out flow
+        run: scripts/dev/smoke.sh
+      - name: Image hardening checks
+        run: |
+          scripts/test/backend-image.sh web-app-test/backend:dev
+          scripts/test/frontend-image.sh web-app-test/frontend:dev
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f compose.dev.yaml logs --tail=100
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.dev.yaml down -v
+
+  shared:
+    name: workflow + secret + dependency review
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: zizmor (workflow security)
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+          min-severity: low
+      - name: gitleaks (secret scanning)
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          config-file: .github/dependency-review-config.yml
