@@ -8,6 +8,7 @@ FE="${1:-http://localhost:3000}"
 ISSUER="${2:-http://localhost:18080/auth/realms/app}"
 USER_EMAIL="${E2E_USER:-smoke@example.com}"
 USER_PASSWORD="${E2E_PASSWORD:-correct-horse-battery-staple-42}"
+USER_NAME="${E2E_NAME:-Smoke Test}"
 JAR="$(mktemp)"; trap 'rm -f "$JAR"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "ok: $*"; }
@@ -54,7 +55,7 @@ pass "callback set an HttpOnly SameSite=Lax session cookie"
 
 # 4. /hello renders the API message
 page="$(c "$FE/hello" | strip_comments)"
-grep -q "Hello, Smoke Test" <<<"$page" || fail "/hello did not render the API message: $(head -c 400 <<<"$page")"
+grep -q "Hello, $USER_NAME" <<<"$page" || fail "/hello did not render the API message: $(head -c 400 <<<"$page")"
 grep -qo "Visit count: [0-9]*" <<<"$page" || fail "no visit count"
 count1="$(grep -o "Visit count: [0-9]*" <<<"$page" | grep -o '[0-9]*$')"
 page2="$(c "$FE/hello" | strip_comments)"

@@ -14,10 +14,23 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
 
-url = os.environ.get("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
-if not url:
-    msg = "DATABASE_URL (app_migrator connection) is required to run migrations"
+
+def resolve_url() -> str:
+    """DATABASE_URL, else the file named by DATABASE_URL_FILE (Compose secret), else alembic.ini."""
+    if url := os.environ.get("DATABASE_URL"):
+        return url
+    if url_file := os.environ.get("DATABASE_URL_FILE"):
+        with open(url_file, encoding="utf-8") as fh:
+            return fh.read().strip()
+    if url := config.get_main_option("sqlalchemy.url"):
+        return url
+    msg = (
+        "DATABASE_URL or DATABASE_URL_FILE (app_migrator connection) is required to run migrations"
+    )
     raise RuntimeError(msg)
+
+
+url = resolve_url()
 config.set_main_option("sqlalchemy.url", url)
 
 # No autogenerate: migrations are hand-written so RLS/grants are explicit.

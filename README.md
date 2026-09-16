@@ -31,7 +31,7 @@ docs/        ADRs, runbooks, verification
 ## Working on the project
 
 - One PR per task, branch `task/T##-short-name`, tests written first. See `CLAUDE.md`.
-- Local development stack: `make dev-up` (available from T09).
+- Local development stack: `make dev-up` then `make dev-smoke` (see [`docs/dev-setup.md`](docs/dev-setup.md)).
 - Never commit secrets. Local secrets live in `.dev-secrets/` (gitignored); deployed secrets are SOPS-encrypted under `infra/secrets/`.
 
 ## Status

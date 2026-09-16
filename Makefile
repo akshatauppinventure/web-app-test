@@ -47,7 +47,9 @@ frontend-image-test: ## Hardening checks against the frontend image (non-root, r
 	scripts/test/frontend-image.sh $(FRONTEND_IMAGE)
 
 .PHONY: test-db-up test-db-down
-test-db-up: ## Start the throwaway Postgres for integration tests (127.0.0.1:55432)
+test-db-up: ## Start the throwaway Postgres for integration tests (127.0.0.1:55432); conflicts with the dev stack
+	@if docker network inspect web-app-test-dev_db >/dev/null 2>&1; then \
+	  echo "error: the dev stack is running and uses the db subnet 172.28.1.0/24 (pg_hba). Run 'make dev-down' first."; exit 1; fi
 	docker compose -f compose.test.yaml up -d --wait
 test-db-down: ## Stop the throwaway test Postgres (+ Keycloak) and delete volumes
 	docker compose -f compose.test.yaml --profile keycloak down -v
@@ -64,12 +66,20 @@ keycloak-smoke: ## Start Postgres + Keycloak (127.0.0.1:18080) and run infra/key
 keycloak-verify-checksums: ## Re-verify third-party artifacts in infra/keycloak/checksums.txt against upstream
 	infra/keycloak/scripts/verify-checksums.sh
 
-.PHONY: dev-up dev-down dev-logs dev-reset
-dev-up: ## Start the local full stack (T09)
-	$(call not_yet,dev-up,T09)
-dev-down: ## Stop the local full stack (T09)
-	$(call not_yet,dev-down,T09)
-dev-logs: ## Tail local stack logs (T09)
-	$(call not_yet,dev-logs,T09)
-dev-reset: ## Stop the local stack and delete its volumes (T09)
-	$(call not_yet,dev-reset,T09)
+DEV_COMPOSE := docker compose -f compose.dev.yaml
+
+.PHONY: dev-secrets dev-up dev-down dev-logs dev-reset dev-smoke
+dev-secrets: ## Generate .dev-secrets/ (kept if present)
+	scripts/dev/gen-dev-secrets.sh
+dev-up: dev-secrets ## Build images and start the local full stack (http://localhost:3000)
+	@test -f .env || cp .env.example .env
+	$(DEV_COMPOSE) build
+	$(DEV_COMPOSE) up -d --wait
+dev-down: ## Stop the local full stack (keeps data)
+	$(DEV_COMPOSE) down
+dev-logs: ## Tail local stack logs
+	$(DEV_COMPOSE) logs -f --tail=100
+dev-reset: ## Stop the local stack and delete its volumes (secrets are kept)
+	$(DEV_COMPOSE) down -v --remove-orphans
+dev-smoke: ## Health checks + full sign-in/sign-out against the local stack
+	scripts/dev/smoke.sh
