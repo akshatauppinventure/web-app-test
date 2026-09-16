@@ -1,0 +1,32 @@
+# Dry-run overlay for infra/stacks/edge/compose.yaml (never used by Portainer):
+# local images, .dev-secrets, loopback ports, no host auth.log, test certificate for sniStrict.
+services:
+  traefik:
+    image: web-app-test/traefik:dev
+    build: { context: ../../../infra/traefik }
+    environment:
+      ACME_CA_SERVER: https://127.0.0.1:9/directory
+    ports: !override
+      - "127.0.0.1:18081:8080"
+      - "127.0.0.1:18443:8443"
+    volumes:
+      - ../../../.traefik-test/certs:/certs:ro
+      - ../../../.traefik-test/dynamic/zz-test-certs.yml:/etc/traefik/dynamic/zz-test-certs.yml:ro
+  crowdsec:
+    image: web-app-test/crowdsec:dev
+    build: { context: ../../../infra/crowdsec }
+    environment:
+      DISABLE_ONLINE_API: "true"
+      ENROLL_KEY_FILE: ""
+    volumes: !override
+      - traefik-logs:/var/log/traefik:ro
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-data:/var/lib/crowdsec/data
+  frontend:
+    image: web-app-test/frontend:dev
+secrets:
+  crowdsec_bouncer_key: { file: ../../../.dev-secrets/crowdsec_bouncer_key }
+  bouncer_key_traefik: { file: ../../../.dev-secrets/crowdsec_bouncer_key }
+  crowdsec_enroll_key: { file: ../../../.dev-secrets/crowdsec_enroll_key }
+  auth_secret: { file: ../../../.dev-secrets/auth_secret }
+  web_bff_client_secret: { file: ../../../.dev-secrets/web_bff_client_secret }

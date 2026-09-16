@@ -1,0 +1,6 @@
+# zizmor configuration (ADR-0019 §1): every `uses:` must be hash-pinned.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": hash-pin

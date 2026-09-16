@@ -1,0 +1,24 @@
+# gitleaks configuration (ADR-0019 §2). Extends the default rules; allowlists test-only values.
+title = "web-app-test"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented test-only credentials and examples"
+paths = [
+  '''scripts/test/pg-secrets/.*''',
+  '''\.env\.example$''',
+  '''frontend/\.env\.example$''',
+  '''infra/keycloak/realms/app-realm\.ci\.json$''',
+  '''scripts/test/frontend-e2e\.sh$''',
+  '''infra/keycloak/scripts/smoke\.sh$''',
+  '''scripts/test/frontend-image\.sh$''',
+  '''docs/.*\.md$''',
+]
+regexes = [
+  '''test-only-[a-z-]+''',
+  '''correct-horse-battery-staple-42''',
+  '''image-test-secret-[0-9a-f]+''',
+  '''e2e-test-secret-[0-9a-f]+''',
+]

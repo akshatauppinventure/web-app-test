@@ -5,6 +5,7 @@ listener for the Traefik bouncer plugin, and serves decisions to the plugin over
 
 | Path | Purpose |
 |---|---|
+| `Dockerfile` | `crowdsecurity/crowdsec:v1.8.1` (digest-pinned) with every file below copied into `/staging/etc/crowdsec/…`, which the upstream entrypoint rsyncs into `/etc/crowdsec` at start — no bind mounts needed (Portainer CE cannot mount repo files) |
 | `collections.txt` | The six hub collections (also the `COLLECTIONS` env in compose) |
 | `acquis.d/traefik.yaml` | Traefik JSON access log (read-only volume from the traefik container) |
 | `acquis.d/sshd.yaml` | Host `/var/log/host/auth.log` (bind-mounted by the edge stack, T16/T17) |
@@ -22,7 +23,7 @@ same value from `/run/secrets/crowdsec_bouncer_key` (`crowdsecLapiKeyFile`). No 
 The plugin runs in **stream** mode (decisions pulled every 60 s) and is **fail-open**
 (`updateMaxFailure: -1`, AppSec failures/unreachable do not block) for the POC.
 
-Mounting rule: the image rsyncs `/staging/etc/crowdsec` over `/etc/crowdsec` at start, so mount **files** (not directories) read-only into `/etc/crowdsec/...`, and keep `/etc/crowdsec` and `/var/lib/crowdsec/data` as named volumes.
+Configuration changes are image changes (rebuild; the entrypoint re-syncs into the `crowdsec-config` volume on start). Keep `/etc/crowdsec` and `/var/lib/crowdsec/data` as named volumes.
 
 ## Console enrollment (owner, T22)
 

@@ -41,8 +41,13 @@ def postgres_available() -> bool:
         return False
 
 
+_PG_AVAILABLE = postgres_available()
+if os.environ.get("TEST_PG_REQUIRED") == "1" and not _PG_AVAILABLE:  # CI must never silently skip
+    msg = "TEST_PG_REQUIRED=1 but Postgres is not reachable"
+    raise RuntimeError(msg)
+
 requires_postgres = pytest.mark.skipif(
-    not postgres_available(),
+    not _PG_AVAILABLE,
     reason="Postgres not reachable; run `docker compose -f compose.test.yaml up -d --wait`",
 )
 

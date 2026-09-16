@@ -1,0 +1,138 @@
+# GitOps stack "edge" — VPS-A (ADR-0003, ADR-0005, ADR-0006, ADR-0012, ADR-0013, ADR-0014, ADR-0016, ADR-0018).
+# Deployed by Portainer (Git, branch main, 5-minute polling, re-pull). Image digests are written by
+# the deploy-PR bot (T13); until then the ghcr.io references below are placeholders.
+# Portainer stack environment (non-secret): ACME_EMAIL, ACME_CA_SERVER (optional), PUBLIC_HOST (optional).
+# Secrets are files under /etc/app/secrets on the host (scripts/secrets/secrets-push.sh, T19).
+name: edge
+
+x-hardening: &hardening
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  traefik:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/traefik:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "65532:65532"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-test-vinayak.duckdns.org}
+      FRONTEND_UPSTREAM: http://frontend:3000
+      KEYCLOAK_UPSTREAM: http://10.10.0.2:8080
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in the Portainer stack environment}
+      ACME_CA_SERVER: ${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      LOG_LEVEL: INFO
+    secrets:
+      - crowdsec_bouncer_key
+    ports:
+      - "0.0.0.0:80:8080"
+      - "0.0.0.0:443:8443"
+    networks: [edge]
+    volumes:
+      - letsencrypt:/letsencrypt
+      - traefik-logs:/var/log/traefik
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=65532,gid=65532
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping.entryPoint=ping", "--entryPoints.ping.address=:8082"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    mem_limit: 256m
+    pids_limit: 128
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+  crowdsec:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/crowdsec:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    # root required by the upstream entrypoint (hub install, log reading); mitigated by read_only,
+    # cap_drop ALL and no published ports. Whitelisted in infra/policy/hardening-exceptions.yaml.
+    user: "0:0"
+    environment:
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/base-http-scenarios crowdsecurity/sshd crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules"
+      USE_WAL: "true"
+      ENROLL_KEY_FILE: /run/secrets/crowdsec_enroll_key
+      ENROLL_INSTANCE_NAME: web-app-test-edge
+    secrets:
+      - bouncer_key_traefik
+      - crowdsec_enroll_key
+    volumes:
+      - traefik-logs:/var/log/traefik:ro
+      - /var/log/auth.log:/var/log/host/auth.log:ro
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-data:/var/lib/crowdsec/data
+    networks: [edge]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 512m
+    pids_limit: 256
+
+  frontend:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/frontend:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "1000:1000"
+    environment:
+      AUTH_URL: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}
+      AUTH_SECRET_FILE: /run/secrets/auth_secret
+      AUTH_KEYCLOAK_ID: web-bff
+      AUTH_KEYCLOAK_SECRET_FILE: /run/secrets/web_bff_client_secret
+      AUTH_KEYCLOAK_ISSUER: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth/realms/app
+      KEYCLOAK_INTERNAL_ISSUER: http://10.10.0.2:8080/auth/realms/app
+      API_BASE_URL: http://10.10.0.2:8000
+      NEXT_PUBLIC_APPLE_LOGIN: "false"
+    secrets:
+      - auth_secret
+      - web_bff_client_secret
+    networks: [edge]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+      - /app/.next/cache:rw,nosuid,size=64m,uid=1000,gid=1000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    mem_limit: 512m
+    pids_limit: 128
+
+secrets:
+  crowdsec_bouncer_key:
+    file: /etc/app/secrets/crowdsec_bouncer_key
+  bouncer_key_traefik:
+    file: /etc/app/secrets/crowdsec_bouncer_key
+  crowdsec_enroll_key:
+    file: /etc/app/secrets/crowdsec_enroll_key
+  auth_secret:
+    file: /etc/app/secrets/auth_secret
+  web_bff_client_secret:
+    file: /etc/app/secrets/web_bff_client_secret
+
+volumes:
+  letsencrypt:
+  traefik-logs:
+  crowdsec-config:
+  crowdsec-data:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.28.3.0/24

@@ -66,6 +66,14 @@ traefik-verify-plugins: ## Re-verify plugin tarball checksums in infra/traefik/p
 crowdsec-test: ## CrowdSec engine + bouncer checks against the running Traefik test stack
 	scripts/test/crowdsec.sh
 
+.PHONY: stacks-check stacks-dryrun
+stacks-check: ## Static policy checks for every compose file (config, published ports, hardening baseline)
+	scripts/ci/check-compose.sh
+	scripts/ci/check-published-ports.sh
+	cd backend && uv run --with pyyaml python ../scripts/ci/check-hardening.py
+stacks-dryrun: ## Start the real edge/core stack files locally with overlays and verify them
+	scripts/test/stacks-dryrun.sh
+
 .PHONY: keycloak-image keycloak-smoke keycloak-verify-checksums
 keycloak-image: ## Build the Keycloak image (web-app-test/keycloak:dev)
 	docker compose -f compose.test.yaml --profile keycloak build keycloak
