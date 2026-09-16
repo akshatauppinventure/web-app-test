@@ -45,7 +45,7 @@ services:
     pids_limit: 256
 
   migrate:
-    image: ghcr.io/akshatauppinventure/backend:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/akshatauppinventure/backend:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:b6386f1e8d5e103b236452a15db50ce8e4effb05f9bb4f2e773c7da18156f83f
     user: "10001:10001"
     command: ["alembic", "upgrade", "head"]
     depends_on:
@@ -73,7 +73,7 @@ services:
 
   backend:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/backend:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/akshatauppinventure/backend:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:b6386f1e8d5e103b236452a15db50ce8e4effb05f9bb4f2e773c7da18156f83f
     user: "10001:10001"
     depends_on:
       migrate:
