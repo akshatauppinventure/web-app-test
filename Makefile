@@ -38,11 +38,13 @@ frontend-run: ## Frontend: next dev on :3000
 frontend-e2e: ## Browser-less login/logout flow against running frontend (:3000), backend (:8000) and Keycloak (:18080)
 	scripts/test/frontend-e2e.sh http://localhost:3000 http://localhost:18080/auth/realms/app
 
+FRONTEND_IMAGE ?= web-app-test/frontend:dev
+
 .PHONY: frontend-image frontend-image-test
-frontend-image: ## Build the frontend image (T08)
-	$(call not_yet,frontend-image,T08)
-frontend-image-test: ## Run hardening checks against the frontend image (T08)
-	$(call not_yet,frontend-image-test,T08)
+frontend-image: ## Build the frontend image locally (tag $(FRONTEND_IMAGE))
+	docker build --pull=false -t $(FRONTEND_IMAGE) --build-arg GIT_SHA=$(GIT_SHA) --build-arg BUILD_DATE=$(BUILD_DATE) frontend/
+frontend-image-test: ## Hardening checks against the frontend image (non-root, read-only, no npm, healthz, labels)
+	scripts/test/frontend-image.sh $(FRONTEND_IMAGE)
 
 .PHONY: test-db-up test-db-down
 test-db-up: ## Start the throwaway Postgres for integration tests (127.0.0.1:55432)
