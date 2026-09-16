@@ -11,8 +11,10 @@
 !*.tfvars.example
 *.tfstate
 *.tfstate.*
+!*.tfstate.sops
+!*.tfvars.sops
 .terraform/
-.terraform.lock.hcl
+.tofu-rendered/
 .traefik-test/
 # decrypted SOPS output
 *.dec.yaml

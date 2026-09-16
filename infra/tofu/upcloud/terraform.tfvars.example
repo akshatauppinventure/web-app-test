@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored; encrypt with sops to terraform.tfvars.sops when committing, see README).
+admin_ssh_public_key = "ssh-ed25519 AAAA... owner@laptop"
+cloud_init_edge_path = "../../../.tofu-rendered/edge.yaml"
+cloud_init_core_path = "../../../.tofu-rendered/core.yaml"
+# zone          = "us-nyc1"
+# template_name = "Ubuntu Server 26.04 LTS (Resolute Raccoon)"
