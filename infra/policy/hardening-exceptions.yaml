@@ -1,0 +1,8 @@
+# Justified exceptions for scripts/ci/check-hardening.py (ADR-0005/0014). Keep this list short.
+# <stack>/<service>:
+#   root: true          # service must run as uid 0 (say why)
+#   cap_add: [...]      # capabilities the service may add (say why)
+#   no_healthcheck: true
+edge/crowdsec:
+  root: true
+  reason: "upstream entrypoint installs hub items and reads root-owned host logs; mitigated by read_only, cap_drop ALL, no ports"

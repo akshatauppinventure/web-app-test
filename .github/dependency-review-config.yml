@@ -1,0 +1,10 @@
+# actions/dependency-review-action (ADR-0019 §2): block new dependencies with known high-severity
+# vulnerabilities or copyleft-network licenses.
+fail-on-severity: high
+deny-licenses:
+  - AGPL-1.0-only
+  - AGPL-1.0-or-later
+  - AGPL-3.0-only
+  - AGPL-3.0-or-later
+  - SSPL-1.0
+comment-summary-in-pr: never

@@ -37,6 +37,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
+- `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
 - `make crowdsec-test` — after `make traefik-test`: bouncer registration, collections, AppSec detect-only, manual ban → 403, fail-open.
 - `make traefik-test` — Traefik image + whoami upstreams on `127.0.0.1:18443` and `scripts/test/traefik-routes.sh` (routing, `/auth/admin` 404, headers, redirect, body limits, 429s, sniStrict). Run after any change under `infra/traefik/`.
 - `make keycloak-image` / `make keycloak-smoke` — build the Keycloak image and run the smoke test against Postgres + Keycloak on `127.0.0.1:18080` (compose profile `keycloak`). Run the smoke test for every Keycloak or extension bump.
@@ -46,7 +47,9 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 
 ## Compose conventions
 
-- Every service: `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, `mem_limit`, `pids_limit`, healthcheck; writable paths are `tmpfs`. Postgres adds back only the caps its entrypoint needs.
+- Every service: explicit numeric `user:`, `read_only`, `cap_drop: [ALL]` (no `cap_add`), `no-new-privileges`, `mem_limit`, `pids_limit`, healthcheck, `restart`, `logging`, image pinned by digest; writable paths are `tmpfs`. `scripts/ci/check-hardening.py` enforces this on `infra/stacks/*`; the only exception is `edge/crowdsec` running as root (listed with a reason in `infra/policy/hardening-exceptions.yaml`). Postgres runs as uid 999 from the start (baked image), so it needs no capabilities.
+- Configuration files are baked into images (`infra/postgres`, `infra/crowdsec`, `infra/keycloak`, `infra/traefik`), never bind-mounted from the repo: Portainer CE Git stacks cannot mount relative paths. Absolute host paths (`/var/log/auth.log`) and named volumes are fine.
+- Stack env vars with `${VAR:?}` are required in Portainer; the policy checkers export placeholder values so `docker compose config` works in CI.
 - Ports bind to `127.0.0.1` locally; in the stacks (T16) only Traefik binds `0.0.0.0`.
 - Secrets are Compose `secrets:` (files), never environment variables. Apps read `*_FILE` or `/run/secrets/<name>`; the migrate job uses `DATABASE_URL_FILE`.
 - Network `db` is `internal: true` with subnet `172.28.1.0/24` (fixed by `pg_hba.conf`); `core` is `172.28.2.0/24`. The test compose uses the same `db` subnet, so the dev stack and `make test-db-up` cannot run at the same time (`make dev-down` first; the Makefile guards this).

@@ -70,7 +70,9 @@ services:
     pids_limit: 32
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.8.1@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+    build:
+      context: ./infra/crowdsec
+    image: web-app-test/crowdsec:dev
     environment:
       COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/base-http-scenarios crowdsecurity/sshd crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules"
       DISABLE_ONLINE_API: "true"       # tests: no CAPI / console; the POC enrolls (README)
@@ -82,13 +84,6 @@ services:
       - traefik-logs-test:/var/log/traefik:ro
       - crowdsec-config-test:/etc/crowdsec
       - crowdsec-data-test:/var/lib/crowdsec/data
-      # individual files (the entrypoint rsyncs /etc/crowdsec and needs the directories writable)
-      - ./infra/crowdsec/acquis.d/traefik.yaml:/etc/crowdsec/acquis.d/traefik.yaml:ro
-      - ./infra/crowdsec/acquis.d/sshd.yaml:/etc/crowdsec/acquis.d/sshd.yaml:ro
-      - ./infra/crowdsec/acquis.d/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
-      - ./infra/crowdsec/config/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
-      - ./infra/crowdsec/parsers/allowlist.yaml:/etc/crowdsec/parsers/s02-enrich/poc-allowlist.yaml:ro
-      - ./infra/crowdsec/appsec/poc-appsec-detect.yaml:/etc/crowdsec/appsec-configs/poc-appsec-detect.yaml:ro
     networks: [edge]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m

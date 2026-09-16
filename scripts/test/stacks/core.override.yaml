@@ -1,0 +1,24 @@
+# Dry-run overlay for infra/stacks/core/compose.yaml (never used by Portainer):
+# local images instead of ghcr.io digests, .dev-secrets instead of /etc/app/secrets.
+services:
+  postgres:
+    image: web-app-test/postgres:dev
+    build: { context: ../../../infra/postgres }
+  migrate:
+    image: web-app-test/backend:dev
+  backend:
+    image: web-app-test/backend:dev
+  keycloak:
+    image: web-app-test/keycloak:dev
+    environment:
+      KC_HOSTNAME_STRICT: "false"
+secrets:
+  postgres_password: { file: ../../../.dev-secrets/postgres_password }
+  app_migrator_password: { file: ../../../.dev-secrets/app_migrator_password }
+  app_rw_password: { file: ../../../.dev-secrets/app_rw_password }
+  keycloak_db_password: { file: ../../../.dev-secrets/keycloak_db_password }
+  keycloak_admin_password: { file: ../../../.dev-secrets/keycloak_admin_password }
+  web_bff_client_secret: { file: ../../../.dev-secrets/web_bff_client_secret }
+  app_google_client_secret: { file: ../../../.dev-secrets/app_google_client_secret }
+  database_url: { file: ../../../.dev-secrets/database_url }
+  migrate_database_url: { file: ../../../.dev-secrets/migrate_database_url }

@@ -22,6 +22,7 @@ _Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`
 
 1. **Portainer is bootstrapped outside the GitOps stacks (T17/T21).** Portainer cannot deploy the stack that contains itself. So Portainer Server (VPS-B) and Agent (VPS-A) are started by cloud-init from a small `bootstrap` compose project, not from `infra/stacks/*`. The GitOps stacks contain only application and edge services. ADR-0006 gets a one-line amendment in T00.
 2. **Traefik upstream addresses come from environment variables** (T14), so the same dynamic config works in the local test (`keycloak` container) and in production (`10.10.0.2`). No security impact; noted for transparency.
+3. **PostgreSQL and CrowdSec get small custom images** (T16: `infra/postgres/Dockerfile`, `infra/crowdsec/Dockerfile`) that bake in the initdb scripts / configuration files. Portainer CE cannot bind-mount repository-relative files from a Git stack (a Business Edition feature), so every configuration file the stacks need is inside an image built and signed by CI. T12's build matrix therefore covers six components: frontend, backend, keycloak, traefik, crowdsec, postgres.
 
 ---
 

@@ -1,0 +1,172 @@
+# GitOps stack "core" — VPS-B (ADR-0003, ADR-0005, ADR-0009, ADR-0010, ADR-0014, ADR-0016, ADR-0018).
+# Deployed by Portainer (local environment). Image digests are written by the deploy-PR bot (T13);
+# until then the ghcr.io references below are placeholders.
+# Portainer stack environment (non-secret): GOOGLE_CLIENT_ID, PUBLIC_HOST (optional), CORE_BIND_IP (optional).
+# Secrets are files under /etc/app/secrets on the host (scripts/secrets/secrets-push.sh, T19).
+name: core
+
+x-hardening: &hardening
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  postgres:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/postgres:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "999:999"
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      APP_MIGRATOR_PASSWORD_FILE: /run/secrets/app_migrator_password
+      APP_RW_PASSWORD_FILE: /run/secrets/app_rw_password
+      KEYCLOAK_PASSWORD_FILE: /run/secrets/keycloak_db_password
+    secrets: [postgres_password, app_migrator_password, app_rw_password, keycloak_db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/run/postgresql:rw,size=8m,uid=999,gid=999
+    networks: [db]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    mem_limit: 1g
+    pids_limit: 256
+
+  migrate:
+    image: ghcr.io/akshatauppinventure/backend:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "10001:10001"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL_FILE: /run/secrets/migrate_database_url
+    secrets: [migrate_database_url]
+    networks: [db]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"
+    mem_limit: 256m
+    pids_limit: 64
+
+  backend:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/backend:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "10001:10001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: poc
+      LOG_LEVEL: INFO
+      OIDC_ISSUER: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth/realms/app
+      OIDC_JWKS_URL: http://keycloak:8080/auth/realms/app/protocol/openid-connect/certs
+      FORWARDED_ALLOW_IPS: "10.10.0.1"
+    secrets: [database_url]
+    ports:
+      - "${CORE_BIND_IP:-10.10.0.2}:8000:8000"
+    networks: [db, core]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    mem_limit: 512m
+    pids_limit: 128
+
+  keycloak:
+    <<: *hardening
+    image: ghcr.io/akshatauppinventure/keycloak:sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "1000:1000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
+      KC_HOSTNAME: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth
+      KC_HOSTNAME_ADMIN: http://${CORE_BIND_IP:-10.10.0.2}:8080/auth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in the Portainer stack environment}
+      WEB_BFF_CLIENT_SECRET_FILE: /run/secrets/web_bff_client_secret
+    secrets: [keycloak_db_password, keycloak_admin_password, web_bff_client_secret, app_google_client_secret]
+    ports:
+      - "${CORE_BIND_IP:-10.10.0.2}:8080:8080"
+    networks: [db, core]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/keycloak/data/tmp:rw,size=64m
+      - /opt/keycloak/data/transaction-logs:rw,size=16m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf ''GET /auth/health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n'' >&3 && grep -q ''"status": "UP"'' <&3'
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    mem_limit: 1536m
+    pids_limit: 512
+
+secrets:
+  postgres_password:
+    file: /etc/app/secrets/postgres_password
+  app_migrator_password:
+    file: /etc/app/secrets/app_migrator_password
+  app_rw_password:
+    file: /etc/app/secrets/app_rw_password
+  keycloak_db_password:
+    file: /etc/app/secrets/keycloak_db_password
+  keycloak_admin_password:
+    file: /etc/app/secrets/keycloak_admin_password
+  web_bff_client_secret:
+    file: /etc/app/secrets/web_bff_client_secret
+  app_google_client_secret:
+    file: /etc/app/secrets/app_google_client_secret
+  database_url:
+    file: /etc/app/secrets/database_url
+  migrate_database_url:
+    file: /etc/app/secrets/migrate_database_url
+
+volumes:
+  pgdata:
+
+networks:
+  db:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24
+  core:
+    ipam:
+      config:
+        - subnet: 172.28.2.0/24
