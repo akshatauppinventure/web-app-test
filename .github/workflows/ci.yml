@@ -53,6 +53,7 @@ jobs:
               - 'compose*.yaml'
               - '.hadolint.yaml'
               - 'renovate.json'
+              - '.github/**'
             keycloak:
               - 'infra/keycloak/**'
               - 'infra/postgres/**'
@@ -158,6 +159,8 @@ jobs:
         run: scripts/ci/check-compose.sh
       - name: Published ports allowlist
         run: scripts/ci/check-published-ports.sh
+      - name: Container hardening baseline (infra/stacks)
+        run: python3 scripts/ci/check-hardening.py
       - name: Keycloak third-party checksums
         run: infra/keycloak/scripts/verify-checksums.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
