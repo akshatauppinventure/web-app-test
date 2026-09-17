@@ -9,6 +9,7 @@
 ```bash
 age-keygen -o ~/.config/sops/age/keys.txt      # prints "Public key: age1..."
 chmod 600 ~/.config/sops/age/keys.txt
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt   # macOS: sops defaults to ~/Library/Application Support/sops/age/keys.txt; add this to ~/.zshrc
 ```
 Store the private key in the password manager **and** keep an offline copy (printed, in a safe): without it every secret and every backup is unrecoverable. Put the public key into `.sops.yaml` (replace `age1REPLACE_WITH_OWNER_PUBLIC_KEY_P5`, three places) and commit.
 

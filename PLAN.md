@@ -36,7 +36,7 @@ Detailed click-by-click steps for every item, with verification commands, are in
 | P2 | T09 | **Google Cloud project** + OAuth consent screen (External, Testing, add yourself as test user) + **OAuth client "local"** with redirect URI `http://localhost:8080/auth/realms/app/broker/google/endpoint` | Local dev secrets (never committed) |
 | P3 | T12 | Confirm GitHub **Packages** visibility settings (private) for the repo | GHCR |
 | P4 | T13 | Create a **GitHub App** (permissions: contents RW, pull requests RW, metadata R) and install it on the repo; store App ID + private key as repo secrets `DEPLOY_APP_ID`, `DEPLOY_APP_KEY` | Deploy-PR bot |
-| P5 | T19 | Generate your **admin age key** (`age-keygen`), keep it in your password manager + an offline copy | `.sops.yaml` public key |
+| P5 | T19 | Generate your **admin age key** (`age-keygen`), keep it in your password manager + an offline copy — **done 2026-09-16** | `.sops.yaml` public key |
 | P6 | T18 | **UpCloud account**, payment method, an **API token** (server + network + storage permissions) | Local env var for OpenTofu (never committed) |
 | P7 | T20 | Install **WireGuard** on your laptop; generate its key pair | Admin peer in `peers.yaml` (public key only) |
 | P8 | T22 | DuckDNS: point `test-vinayak.duckdns.org` at VPS-A's public IPv4 (after T20). Account has MFA. | DNS |
