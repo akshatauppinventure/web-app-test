@@ -29,6 +29,7 @@ for role in edge core; do
   grep -q "PrivateKey = $(grep '^WG_PRIVATE_KEY=' scripts/test/host-vars.example | cut -d= -f2-)" "$OUT/$role.yaml" || fail "$role: bootstrap private key not rendered"
   grep -q 'wg-rotate-key.sh' "$OUT/$role.yaml" || fail "$role: wg-rotate-key.sh not embedded"
   grep -q 'resolve-public-if.sh' "$OUT/$role.yaml" || fail "$role: resolve-public-if.sh not embedded"
+  awk '/^runcmd:/{r=1; next} /^[a-z_]+:/{r=0} r' "$OUT/$role.yaml" | grep -v '^\s*#' | grep -vE '^\s*$' | tail -1 | grep -q 'boot-report.sh' || fail "$role: boot-report.sh must be the last runcmd entry"
   awk '/^runcmd:/{r=1} r' "$OUT/$role.yaml" | grep -q 'wg genkey' && fail "$role: runcmd still generates a key at first boot (would not match the rendered peers)"
 done
 pass "rendered cloud-init uses the bootstrap keys and embeds the rotate/resolve scripts"
@@ -87,6 +88,9 @@ new=$(sed -n "s/^PrivateKey = //p" /t/wg/wg0.conf); [ "$new" != "$k" ] || { echo
 [ "$(cat /t/wg/public.key)" = "$pub" ] && [ ! -e /t/wg/wg0.conf.tmpl ] && grep -q "^PublicKey = BBBB" /t/wg/wg0.conf || { echo "rotate side effects wrong"; exit 1; }
 [ "$(stat -c %a /t/wg/private.key)" = 600 ] || { echo "private.key mode $(stat -c %a /t/wg/private.key)"; exit 1; }
 echo "ok: wg-rotate-key.sh rotates in place and prints the new public key"
+# boot report: runs without wg/nft/cloud-init present, prints every section, never fails
+BOOT_REPORT_OUT=/t/boot-report.txt BOOT_REPORT_LOG=/t/boot-report.log /s/boot-report.sh
+grep -q "boot report" /t/boot-report.txt && grep -q "wg-quick@wg0:" /t/boot-report.txt && grep -q "end boot report" /t/boot-report.log && echo "ok: boot-report.sh prints the summary to the console target and the log"
 # resolver: default route interface replaces "auto" in nftables.conf and host.env
 /s/resolve-public-if.sh /t/edge-auto.nft /t/host.env
 ifc=$(ip -o -4 route show default | awk "{print \$5}" | head -1)
