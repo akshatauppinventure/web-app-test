@@ -5,7 +5,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT"
 IMG="ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d"
-OUT="${TMPDIR:-/tmp}/host-bootstrap-test.$$"; mkdir -p "$OUT"; trap 'rm -rf "$OUT"' EXIT
+OUT="${TMPDIR:-/tmp}/host-bootstrap-test.$$"; mkdir -p "$OUT"
+# files written by the (root) container are chowned back before cleanup; never fail the run on cleanup
+trap 'rm -rf "$OUT" 2>/dev/null || true' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "ok: $*"; }
 R=infra/host/scripts/render-cloud-init.sh
@@ -62,8 +64,9 @@ scripts/host/render-laptop-wg.sh "$OUT/peers.yaml" "$LAPTOP_KEY" "$OUT/webapptes
 [ "$(grep -c '^PresharedKey = ' "$OUT/webapptest-psk.conf")" = 2 ] || fail "laptop config with PSKs wrong"
 pass "laptop WireGuard config renders with and without pre-shared keys"
 
-docker run --rm -v "$OUT:/t" -v "$ROOT/infra/host/scripts:/s:ro" "$IMG" bash -c '
+docker run --rm -v "$OUT:/t" -v "$ROOT/infra/host/scripts:/s:ro" -e "HOST_UID=$(id -u)" "$IMG" bash -c '
 set -euo pipefail
+trap "chown -R \"$HOST_UID\" /t" EXIT
 apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard-tools iproute2 nftables >/dev/null 2>&1
 wg-quick strip /t/webapptest.conf >/dev/null && wg-quick strip /t/webapptest-psk.conf >/dev/null && echo "ok: wg-quick strip laptop configs"
 # rotate: conf gets a new key, public key printed matches, bootstrap template removed, no wg0 needed
