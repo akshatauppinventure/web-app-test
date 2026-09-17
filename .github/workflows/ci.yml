@@ -176,18 +176,19 @@ jobs:
       - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
         with:
           tflint_version: v0.64.0
-      - name: OpenTofu fmt, validate, tflint
-        working-directory: infra/tofu/upcloud
+      - name: OpenTofu fmt, validate, tflint (every provider module) + module contract
         run: |
-          tofu fmt -check -recursive
-          tofu init -backend=false -input=false
-          tofu validate
-          tflint --init && tflint --config .tflint.hcl
+          for m in infra/tofu/*/; do
+            echo "== $m"
+            ( cd "$m" && tofu fmt -check -recursive && tofu init -backend=false -input=false && tofu validate \
+              && tflint --init && tflint --config .tflint.hcl )
+          done
+          scripts/test/tofu-contract.sh
       - name: OpenTofu misconfiguration scan (trivy config)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
-          scan-ref: infra/tofu/upcloud
+          scan-ref: infra/tofu
           exit-code: "1"
           severity: HIGH,CRITICAL
       - name: Install sops (checksum-verified) and age

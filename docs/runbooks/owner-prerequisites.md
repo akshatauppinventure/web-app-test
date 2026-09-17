@@ -21,6 +21,7 @@
 | P9 | Google OAuth client "poc" | T22 | 5 min |
 | P10 | UpCloud Managed Object Storage bucket + key | T23 | 10 min |
 | P11 | (Optional) external uptime monitor | T24 | 5 min |
+| P15 | OVHcloud US account, Public Cloud project with vRack, OpenStack user `openrc` — only when the OVH POC starts | OVH repeat of T20 (`infra/tofu/ovh`) | 20 min |
 
 ---
 
@@ -198,6 +199,27 @@ The deploy bot must open PRs with an **installation token** so required checks r
 3. Point its alert channel at your email or the same ntfy topic used by the host health check (`NOTIFY_WEBHOOK_URL` in `/etc/app/host.env`, set in T20/T21).
 4. Verify: pause the monitor and resume it, or stop the frontend briefly during T24 and confirm the alert arrives.
 
+## P15 · OVHcloud US account, Public Cloud project and OpenStack user (OVH POC, after UpCloud)
+
+Only needed when you repeat the POC on OVHcloud (ADR-0025). Vint Hill, VA is served by **OVHcloud US**, a separate company from OVHcloud EU/CA: the account, control panel and billing are at `us.ovhcloud.com`.
+
+1. https://us.ovhcloud.com → create the account, verify email, add a payment method, enable two-factor authentication (Account → Security).
+2. Control panel → **Public Cloud** → **Create a project** (name `web-app-test`). New projects come with a **vRack**; check Public Cloud → Network → **Private network** shows no "activate vRack" prompt (if it does, activate it: free).
+3. Create the OpenStack user: Public Cloud → Project Management → **Users & Roles** → **Add user** (description `web-app-test-tofu`, role **Compute Operator** + **Network Operator**). Save the generated password in the password manager (**secret**). Then **Download OpenStack's RC file** for region `US-EAST-VA-1` (`openrc.sh`).
+   - Alternative with no user password: Users & Roles → the user → **Generate an application credential**, and export `OS_AUTH_TYPE=v3applicationcredential`, `OS_APPLICATION_CREDENTIAL_ID`, `OS_APPLICATION_CREDENTIAL_SECRET` instead of username/password.
+4. Keep `openrc.sh` outside the repository (e.g. `~/.config/openstack/web-app-test-us-east.sh`) and load it only in the shell that runs OpenTofu:
+   ```bash
+   source ~/.config/openstack/web-app-test-us-east.sh     # prompts for the password; OS_AUTH_URL=https://auth.cloud.ovh.us/v3
+   ```
+5. Verify without creating anything (`brew install openstackclient` or `uvx --from python-openstackclient openstack`):
+   ```bash
+   openstack region list
+   openstack image list --public | grep -i ubuntu          # 26.04 present? else set template_name in terraform.tfvars
+   openstack flavor list | grep -E 'd2-4|d2-8|b3-8|b3-16'   # d2-4/d2-8 available in US-EAST-VA-1?
+   openstack network list                                    # Ext-Net present
+   ```
+6. Then the OVH repeat of T20 runs `tofu plan` in `infra/tofu/ovh` (steps in its README); review that the plan shows exactly 2 instances, 1 keypair, 1 network, 1 subnet, 2 security groups and 10 rules before `tofu apply`.
+
 ## P1 · Repository (done)
 
 `akshatauppinventure/web-app-test` exists, is private, and holds 19 commits on `main` (17 merged PRs). Nothing to do.
@@ -216,3 +238,4 @@ The deploy bot must open PRs with an **installation token** so required checks r
 | T21 + P8 + P9 | T22 DNS, TLS, first end-to-end deployment | both | after T21 |
 | T22 + P10 | T23 backups live, first restore drill | both | after T22 |
 | T23 (+ P11) | T24 security verification and report; T25 close-out | Claude, owner review | after T23 |
+| after the UpCloud POC + P15 | OVH repeat of T20–T23 with `infra/tofu/ovh` (ADR-0025) | owner runs `tofu apply`; Claude prepares vars/plan | "start OVH POC" |

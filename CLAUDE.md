@@ -51,7 +51,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make test-db-up` / `make test-db-down` — throwaway Postgres 18.6 from `compose.test.yaml` on `127.0.0.1:55432` (test-only passwords in `scripts/test/pg-secrets/`). DB tests skip when it is not running; run them before every backend PR.
 - `make backend-migrate` — `alembic upgrade head`; needs `DATABASE_URL` for the `app_migrator` role.
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
-- `make tofu-check` — `tofu fmt -check`, `tofu init -backend=false`, `tofu validate`, `tflint`, `trivy config` on `infra/tofu/upcloud` (no credentials). `tofu plan` needs `UPCLOUD_TOKEN` (P6) and the rendered cloud-init files.
+- `make tofu-check` — for every `infra/tofu/<provider>` module: `tofu fmt -check`, `tofu init -backend=false`, `tofu validate`, `tflint`, `trivy config`, then `scripts/test/tofu-contract.sh` (no credentials). `tofu plan` needs `UPCLOUD_TOKEN` (P6) or the OVH `openrc` (P15) and the rendered cloud-init files.
 - `make secrets-check` — SOPS/age round trip with a throwaway key, `infra/secrets/SCHEMA.md` vs every referenced secret, generator coverage, dry-run push. `make secrets-gen` / `secrets-encrypt SRC=` / `secrets-push HOST=` are the owner's workflow (`docs/runbooks/secrets.md`).
 - `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, `wg-quick strip`, DOCKER-USER rules) in `ubuntu:26.04` containers.
 - `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
@@ -78,11 +78,13 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `secrets-push.sh` maps each name to a path, owner UID and mode; a secret without a rule fails the push. Values travel only over stdin to `ssh … tee`; never as arguments.
 - The repo's `.sops.yaml` holds the owner's age recipient (P5). Tests never touch it: they use a throwaway key with `sops --config <temp>`.
 
-## OpenTofu conventions (`infra/tofu/upcloud/`)
+## OpenTofu conventions (`infra/tofu/<provider>/`)
 
-- Provider source is `UpCloudLtd/upcloud` (exact version in `versions.tf`, hash-pinned by the committed `.terraform.lock.hcl`). Credentials only via `UPCLOUD_TOKEN`.
+- One module per provider with an identical contract (ADR-0025): `upcloud` (reference) and `ovh` (OVHcloud US Public Cloud, OpenStack). `scripts/test/tofu-contract.sh` fails CI if a module lacks a shared variable/output, the standard files, an exact provider version, `ignore_changes = [user_data]`, or sets credentials in `providers.tf`. Provider-specific extras are fine; add shared ones to the test and to both modules.
+- Providers: `UpCloudLtd/upcloud` (credentials only via `UPCLOUD_TOKEN`) and `terraform-provider-openstack/openstack` (credentials only via the `openrc` environment, `OS_*`). Exact versions in `versions.tf`, hash-pinned by the committed `.terraform.lock.hcl` (`tofu providers lock -platform=darwin_arm64 -platform=darwin_amd64 -platform=linux_amd64` after a bump).
+- OVH specifics: vRack private network via `value_specs` (`provider:network_type = vrack` + VLAN id), subnet with `no_gateway`, security groups with `delete_default_rules = true` and IPv4-only rules; image chosen by `name_regex`; `PUBLIC_IF=ens3` in the host vars. Untested against a real project until P15.
 - Cloud-init is passed as `user_data` from files rendered by `infra/host/scripts/render-cloud-init.sh` into the gitignored `.tofu-rendered/`; `ignore_changes = [user_data]` (first boot only).
-- Firewall rules are stateless: every outbound protocol the hosts use needs an inbound return rule (`firewall.tf` `return_rules`). Keep each server under 20 rules (`firewall_rule_counts` output).
+- UpCloud firewall rules are stateless: every outbound protocol the hosts use needs an inbound return rule (`firewall.tf` `return_rules`). Keep each server under 20 rules (`firewall_rule_counts` output). OpenStack security groups are stateful (no return rules).
 - State and tfvars stay local; commit them only as `*.sops` (rules in `.sops.yaml`).
 
 ## Host conventions (`infra/host/`)
@@ -170,4 +172,5 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
 | T19 Secrets tooling (SOPS + age) | done; P5 done, `infra/secrets/*.sops.yaml` committed (P9/P10/CrowdSec values still `CHANGE_ME`) | #16, #47 |
 | T13 deploy-PR bot + digest verification | done; six deploy PRs #39–#44 verified and auto-merged, negative PR #38 failed at cosign verify | #36, #37, #45 |
+| T26 OpenTofu module for OVHcloud (second provider, contract test) | done (live plan/apply when the OVH POC starts, P15) | #48 |
 | T20–T25 | not started | — |
