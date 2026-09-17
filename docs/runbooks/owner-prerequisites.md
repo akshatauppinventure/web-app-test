@@ -14,7 +14,7 @@
 | P4 | Deploy GitHub App + repo secrets — **done** (`web-app-test-deploy[bot]` opens deploy PRs) | T13 | — |
 | P3 | GHCR packages private — **done** (CI enforces it on every publish) | ADR-0017 §5, T13 | — |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
-| P5 | Generate the admin age key, encrypt the secrets files | T19 completion, T20–T22 | 15 min |
+| P5 | Generate the admin age key, encrypt the secrets files — **done** (5 owner values still `CHANGE_ME`: P9, P10, CrowdSec enrollment) | T19 completion, T20–T22 | — |
 | P7 | WireGuard key pair on the laptop | T20 | 5 min |
 | P6 | UpCloud account, payment method, API token | T18 plan, T20 apply (billing starts) | 15 min |
 | P8 | DuckDNS record → VPS-A public IP | T22 | 2 min (after T20) |
@@ -113,7 +113,7 @@ The deploy bot must open PRs with an **installation token** so required checks r
    (`dev-reset` is needed once: the client id is substituted into the realm at first import; a later secret change only needs `docker compose -f compose.dev.yaml restart keycloak`.)
 5. Verify: open http://localhost:3000 → **Sign in with Google** → consent → `/hello` shows the visit message; a second visit increments the count. `make dev-smoke` still passes with the local user.
 
-## P5 · Admin age key and the encrypted secrets files (completes T19; needed before T20)
+## P5 · Admin age key and the encrypted secrets files — **done 2026-09-16** (recipient in `.sops.yaml`, `infra/secrets/{edge,core}.sops.yaml` committed)
 
 1. Generate the key (**secret**):
    ```bash
@@ -131,7 +131,7 @@ The deploy bot must open PRs with an **installation token** so required checks r
    git add infra/secrets/*.sops.yaml && git commit -m "secrets: initial encrypted values" && git push
    ```
    Copy `restic_password` and `portainer_admin_password` from the files into the password manager (`sops -d --extract '["restic_password"]' infra/secrets/core.sops.yaml`).
-4. Verify: `sops -d infra/secrets/core.sops.yaml | head -3` decrypts on your laptop; `make secrets-check` passes; `git grep -n 'ENC\[AES256_GCM' infra/secrets | head -1` shows encrypted values.
+4. Verify: `sops -d infra/secrets/core.sops.yaml | head -3` decrypts on your laptop (on macOS sops looks in `~/Library/Application Support/sops/age/keys.txt`, so either move the file there or `export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt` in your shell profile); `make secrets-check` passes; `git grep -n 'ENC\[AES256_GCM' infra/secrets | head -1` shows encrypted values.
 5. Values you fill later (P9, P10, CrowdSec enrollment): `sops infra/secrets/core.sops.yaml` opens the file decrypted in `$EDITOR` and re-encrypts on save.
 
 ## P7 · WireGuard key pair on the laptop (needed by T20)
