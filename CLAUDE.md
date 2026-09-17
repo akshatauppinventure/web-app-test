@@ -90,7 +90,8 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 ## Host conventions (`infra/host/`)
 
 - The committed scripts/units/configs are the source of truth; `scripts/render-cloud-init.sh` embeds them into the cloud-init templates at render time. Never edit rendered output by hand.
-- Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain. WireGuard private keys are generated on the host at first boot; only public keys go into `wireguard/peers.yaml`.
+- Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain or if any WireGuard key is not a real 44-char key (a placeholder would brick the host: sshd listens on `wg0` only). `PUBLIC_IF=auto` is resolved from the default route at first boot (`scripts/resolve-public-if.sh`).
+- WireGuard keys (T20): the laptop generates a *bootstrap* key pair per host, rendered into user_data so all peers are valid at first boot; `scripts/host/finalize-wireguard.sh` then rotates both keys on the hosts (`wg-rotate-key.sh`, generated on the host, never leaves it), rewires peers, writes `psk-map` and prints the `peers.yaml` snippet. Only public keys go into `wireguard/peers.yaml`. Laptop config: `scripts/host/render-laptop-wg.sh`. Tests: `scripts/test/host-bootstrap.sh` (stubbed ssh).
 - Host scripts read secrets from `/etc/app/secrets/<name>` and role settings from `/etc/app/host.env` (`HOST_ROLE`, `PEER_IP`, `PUBLIC_HOST`, `PUBLIC_IF`, `NOTIFY_WEBHOOK_URL`).
 - Validation runs in `ubuntu:26.04` containers (`nft -c` needs `--privileged`; macOS `sed` has no `\|`, so use Python for multi-key substitutions in tests).
 

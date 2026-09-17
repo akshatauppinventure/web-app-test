@@ -18,10 +18,11 @@ _Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`
 4. Docs touched by the task are updated in the same PR (README, runbooks, ADR follow-ups).
 5. New images/versions follow the pinning rules in ADR-0020 (exact version + digest, no `latest`).
 
-### Two deviations from the ADRs, for your review
+### Deviations from the ADRs, for your review
 
 1. **Portainer is bootstrapped outside the GitOps stacks (T17/T21).** Portainer cannot deploy the stack that contains itself. So Portainer Server (VPS-B) and Agent (VPS-A) are started by cloud-init from a small `bootstrap` compose project, not from `infra/stacks/*`. The GitOps stacks contain only application and edge services. ADR-0006 gets a one-line amendment in T00.
 2. **Traefik upstream addresses come from environment variables** (T14), so the same dynamic config works in the local test (`keycloak` container) and in production (`10.10.0.2`). No security impact; noted for transparency.
+4. **WireGuard bootstrap keys come from the laptop** (T20, ADR-0015 says keys are generated on the host). Cloud-init cannot bring `wg0` up with placeholder peers and sshd only listens on the tunnel, so the laptop generates a bootstrap key pair per host, renders it into user_data, and `scripts/host/finalize-wireguard.sh` replaces it on first contact with a key generated on the host (never leaves it). The bootstrap key is exposed only in `.tofu-rendered/` (gitignored) and the provider's user_data until rotation.
 3. **PostgreSQL and CrowdSec get small custom images** (T16: `infra/postgres/Dockerfile`, `infra/crowdsec/Dockerfile`) that bake in the initdb scripts / configuration files. Portainer CE cannot bind-mount repository-relative files from a Git stack (a Business Edition feature), so every configuration file the stacks need is inside an image built and signed by CI. T12's build matrix therefore covers six components: frontend, backend, keycloak, traefik, crowdsec, postgres.
 
 ---
