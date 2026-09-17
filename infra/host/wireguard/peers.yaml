@@ -17,4 +17,4 @@ servers:
 admins:
   - name: owner-laptop
     wg_ip: 10.10.0.10
-    public_key: "REPLACE_WITH_ADMIN_PUBLIC_KEY"   # owner prerequisite P7
+    public_key: "9lYdcJmPlVRV7kjY8z9HfftASvIpgaUgM34QlPhhx0w="   # owner laptop (P7, 2026-09-16)
