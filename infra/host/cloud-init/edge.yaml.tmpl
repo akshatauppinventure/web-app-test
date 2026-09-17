@@ -148,6 +148,10 @@ __WG_ROTATE_KEY__
     permissions: "0755"
     content: |
 __RESOLVE_PUBLIC_IF__
+  - path: /usr/local/sbin/boot-report.sh
+    permissions: "0755"
+    content: |
+__BOOT_REPORT__
   - path: /usr/local/sbin/healthcheck.sh
     permissions: "0755"
     content: |
@@ -253,5 +257,7 @@ runcmd:
 
   # Portainer bootstrap starts once the secrets exist (T21 runbook): docker compose -p portainer -f /etc/app/bootstrap/portainer-agent.compose.yaml up -d
   - echo "cloud-init finished for edge; public key $(cat /etc/wireguard/public.key)" > /var/log/cloud-init-summary.log
+  # Diagnostics on the VNC console (tty1): reachable through the provider API when the tunnel is not
+  - /usr/local/sbin/boot-report.sh || true
 
 final_message: "web-app-test edge host ready after $UPTIME seconds (public WireGuard key in /etc/wireguard/public.key)"

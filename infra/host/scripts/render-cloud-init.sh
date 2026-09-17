@@ -48,6 +48,7 @@ files = {
     "__WG_APPLY_PSKS__": here / "scripts/wg-apply-psks.sh",
     "__WG_ROTATE_KEY__": here / "scripts/wg-rotate-key.sh",
     "__RESOLVE_PUBLIC_IF__": here / "scripts/resolve-public-if.sh",
+    "__BOOT_REPORT__": here / "scripts/boot-report.sh",
     "__HEALTHCHECK__": here / "scripts/healthcheck.sh",
     "__UNIT_DOCKER_USER_RULES__": here / "systemd/docker-user-rules.service",
     "__UNIT_DOCKER_DROPIN__": here / "systemd/docker.service.d/wireguard.conf",
