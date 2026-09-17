@@ -16,7 +16,7 @@
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files — **done** (5 owner values still `CHANGE_ME`: P9, P10, CrowdSec enrollment) | T19 completion, T20–T22 | — |
 | P7 | WireGuard key pair on the laptop — **done** (public key in `peers.yaml`) | T20 | — |
-| P6 | UpCloud account, payment method, API token | T18 plan, T20 apply (billing starts) | 15 min |
+| P6 | UpCloud account, payment method, API token — **done** (token in `~/.config/upcloud/token`, mode 600) | T18 plan, T20 apply (billing starts) | — |
 | P8 | DuckDNS record → VPS-A public IP | T22 | 2 min (after T20) |
 | P9 | Google OAuth client "poc" | T22 | 5 min |
 | P10 | UpCloud Managed Object Storage bucket + key | T23 | 10 min |
@@ -147,16 +147,18 @@ The deploy bot must open PRs with an **installation token** so required checks r
 4. The laptop config is created in T20 once the servers' public keys exist (template: two peers, `AllowedIPs = 10.10.0.1/32` and `10.10.0.2/32`, `PersistentKeepalive = 25`, plus the pre-shared keys from `infra/secrets`).
 5. Verify: `wg pubkey < laptop.key` prints the same key as `laptop.pub`.
 
-## P6 · UpCloud account and API token (T18 plan; T20 apply starts billing)
+## P6 · UpCloud account and API token — **done 2026-09-17** (account verified, `us-nyc1`, plans and the Ubuntu 26.04 template confirmed via the API)
 
 1. https://signup.upcloud.com → create the account, verify email, add a **payment method** (Hub → Billing). Enable **two-factor authentication** on the account (Hub → Account → Security).
 2. Create an API credential with the least access the module needs (servers, networks, storages):
    - Hub → **Account → API tokens** (or **People → API tokens**, naming varies) → **Create token**, name `web-app-test-tofu`, expiry ≤ 90 days. If the dialog offers permission scopes, allow only Servers, Networks, Storages and IP addresses. If tokens are not offered, create a **sub-account** (Hub → People → Add) with **API access** enabled, restricted to your laptop's public IP, and use its username/password instead.
    - Copy the token (**secret**) to the password manager.
-3. Export it only in the shell that runs OpenTofu (never in files):
+3. Store it in a private file outside the repository (never in the repo, never pasted into chat or shell history; copy the token to the clipboard first):
    ```bash
-   export UPCLOUD_TOKEN='<token>'         # or UPCLOUD_USERNAME / UPCLOUD_PASSWORD for a sub-account
+   mkdir -p ~/.config/upcloud && chmod 700 ~/.config/upcloud
+   pbpaste > ~/.config/upcloud/token && chmod 600 ~/.config/upcloud/token
    ```
+   Load it per shell with `export UPCLOUD_TOKEN="$(cat ~/.config/upcloud/token)"`; the provisioning steps read the file the same way. A token that was ever displayed or pasted anywhere is revoked in the Hub (Account → API Tokens → Delete) and re-created.
 4. Verify without creating anything:
    ```bash
    curl -s -H "Authorization: Bearer $UPCLOUD_TOKEN" https://api.upcloud.com/1.3/account | jq .account.username

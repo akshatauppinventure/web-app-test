@@ -5,7 +5,7 @@ Creates exactly: 2 servers (`<prefix>-edge` 2xCPU-4GB, `<prefix>-core` 4xCPU-8GB
 ## Usage (owner, T20)
 
 ```bash
-export UPCLOUD_TOKEN=...                      # P6, never in files
+export UPCLOUD_TOKEN="$(cat ~/.config/upcloud/token)"   # P6: private file outside the repo, mode 600
 mkdir -p .tofu-rendered && infra/host/scripts/render-cloud-init.sh edge /path/edge.vars .tofu-rendered/edge.yaml
 infra/host/scripts/render-cloud-init.sh core /path/core.vars .tofu-rendered/core.yaml
 cd infra/tofu/upcloud && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
