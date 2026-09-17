@@ -24,9 +24,9 @@ resource "openstack_networking_subnet_v2" "private" {
   no_gateway  = true
   tags        = local.tags
 
-  # Fixed server addresses (.1/.2) sit outside the DHCP pool.
+  # Fixed server addresses (.11/.2) sit outside the DHCP pool.
   allocation_pool {
-    start = cidrhost(var.private_network_cidr, 10)
+    start = cidrhost(var.private_network_cidr, 100)
     end   = cidrhost(var.private_network_cidr, -2)
   }
 }

@@ -2,7 +2,7 @@
 
 **Purpose:** create VPS-A "edge" and VPS-B "core" from `infra/tofu/<provider>` with the first-boot configuration from `infra/host`, establish the WireGuard mesh (A ↔ B over the provider's private network, laptop ↔ both over the public IPs), and record the host baseline. ADRs 0002, 0004, 0014, 0015.
 
-**Prerequisites:** P5 (age key, `infra/secrets/*.sops.yaml`), P6 (`~/.config/upcloud/token`), P7 (`~/.config/wireguard/laptop.key`), `brew install wireguard-tools opentofu sops age jq`, the laptop's SSH key in `~/.ssh/id_ed25519.pub`.
+**Prerequisites:** P5 (age key, `infra/secrets/*.sops.yaml`), P6 (`~/.config/upcloud/token` **and the account out of trial mode**: the trial firewall is fixed and drops UDP 51820, so `tofu apply` fails on the rulesets and the tunnel never connects), P7 (`~/.config/wireguard/laptop.key`), `brew install wireguard-tools opentofu sops age jq`, the laptop's SSH key in `~/.ssh/id_ed25519.pub`.
 
 **Last tested:** 2026-09-17 (UpCloud `us-nyc1`).
 
@@ -30,7 +30,7 @@ cd infra/tofu/upcloud && cp terraform.tfvars.example terraform.tfvars   # admin_
 tofu init && tofu plan -out plan.bin
 ```
 
-Review: exactly 2 servers (`webapptest-edge` 2xCPU-4GB, `webapptest-core` 4xCPU-8GB, Ubuntu 26.04, public IPv4 + private 10.0.0.1/.2, firewall on, keys-only login, no password), 1 network + 1 router, 2 firewall rulesets (edge 13 rules, core 11). Then, and only then:
+Review: exactly 2 servers (`webapptest-edge` 2xCPU-4GB, `webapptest-core` 4xCPU-8GB, Ubuntu 26.04, public IPv4 + private 10.0.0.11/.2 (x.1 is UpCloud's SDN gateway and refused for servers), firewall on, keys-only login, no password), 1 network + 1 router, 2 firewall rulesets (edge 13 rules, core 11). Then, and only then:
 
 ```bash
 tofu apply plan.bin      # billing starts
