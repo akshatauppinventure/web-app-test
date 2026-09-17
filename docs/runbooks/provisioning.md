@@ -6,7 +6,7 @@
 
 **Last tested:** 2026-09-17 (UpCloud `us-nyc1`, trial account).
 
-**Trial account (UpCloud):** set `WG_PORT=33434` in both vars files, `wireguard_port = 33434` and `manage_provider_firewall = false` in `terraform.tfvars`, and use `port: 33434` endpoints in `peers.yaml`. The fixed trial firewall passes UDP only on 33434 both ways and refuses rule changes (`TRIAL_FIREWALL`). Everything else below is unchanged.
+**Trial account (UpCloud): do not.** The fixed trial firewall is stateless without TCP return rules, so `apt` hangs and cloud-init never finishes; make the $10 deposit first (P6). For a different account with a fixed firewall the knobs exist: set `WG_PORT=33434` in both vars files, `wireguard_port = 33434` and `manage_provider_firewall = false` in `terraform.tfvars`, and use `port: 33434` endpoints in `peers.yaml`. The fixed trial firewall passes UDP only on 33434 both ways and refuses rule changes (`TRIAL_FIREWALL`). Everything else below is unchanged.
 
 ## 1. Render cloud-init with bootstrap WireGuard keys
 
