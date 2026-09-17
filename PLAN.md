@@ -45,6 +45,7 @@ Detailed click-by-click steps for every item, with verification commands, are in
 | P11 | T24 | (Optional) free external uptime monitor account | ADR-0024 |
 | P12 | T00 | **Decide:** upgrade to GitHub Pro so the `main` ruleset can be enforced on the private repo, or accept process-only protection for the POC (see `docs/runbooks/github-settings.md`) | Repo ruleset |
 | P13 | T10 | Install the **Renovate GitHub App** on the repository (steps in `docs/runbooks/github-settings.md` §4) | Dependency PRs |
+| P15 | OVH POC (after UpCloud) | **OVHcloud US account** (`us.ovhcloud.com`), payment method, a Public Cloud project with vRack, an **OpenStack user** and its `openrc` file (or an application credential) | `source openrc.sh` for OpenTofu (never committed) |
 | P14 | T11 | Grant the `gh` CLI token the **`workflow`** scope (`gh auth refresh -h github.com -s workflow`) so `.github/workflows/*` can be pushed | CI workflow PR |
 
 Not needed for the POC: a domain, Apple Developer Program, Cloudflare.
@@ -75,6 +76,7 @@ graph LR
   T00 --> T17
   T00 --> T18
   T00 --> T19
+  T18 --> T26
   T16 --> T20
   T17 --> T20
   T18 --> T20
@@ -264,6 +266,15 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 
 ---
 
+### T26 · OpenTofu module for OVHcloud Public Cloud — **M** ∥
+
+- **ADRs:** 0025 (0002, 0014, 0015)
+- **Depends on:** T18 (contract reference), T17 (templates)
+- **Files:** `infra/tofu/ovh/{versions.tf, providers.tf, variables.tf, main.tf, network.tf, firewall.tf, outputs.tf, terraform.tfvars.example, README.md, .tflint.hcl, .terraform.lock.hcl}` (2 instances in `US-EAST-VA-1`, Ubuntu 26.04 image by regex, Ext-Net + vRack private network, cloud-init from T17, stateful security groups per ADR-0014 layer 1, no IPv6 rules), `scripts/test/tofu-contract.sh` (same variables/outputs/files in every module), `scripts/test/tofu-check.sh` (loops over modules), `.sops.yaml` (ovh state rule), CI.
+- **Tests:** `make tofu-check` (fmt, validate, tflint, trivy config for both modules + contract test, CI, no credentials); `tofu plan` against a real project when P15 exists (plan pasted into the OVH provisioning PR, secrets redacted).
+- **Done when:** CI runs the checks for both modules; the contract test fails when a module drops a shared variable/output; the ovh module validates with the pinned provider and lock file. Live `plan`/`apply` is part of the OVH repeat of T20 (after the UpCloud POC).
+- **Owner action:** none now; P15 when the OVH POC starts.
+
 ## Phase 4 — Provision and deploy (cloud costs start here)
 
 ### T20 · Provision both VPS, WireGuard, host hardening baseline — **L**
@@ -330,10 +341,10 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 | 0 Bootstrap | T00 | S | 0.5 | no |
 | 1 Local app | T01–T09 | S S M M S L S L S → | 6 | no |
 | 2 CI/CD | T10–T13 | S M M M | 3 | no |
-| 3 Infra config | T14–T19 | M M M L M S | 5 | no |
+| 3 Infra config | T14–T19, T26 | M M M L M S M | 5.5 | no |
 | 4 Provision/deploy | T20–T23 | L M M S | 4 | **yes** (~$40–50/month + object storage) |
 | 5 Verification | T24–T25 | L S | 2 | yes |
-| **Total** | **26 tasks** | | **≈ 20 sessions** | |
+| **Total** | **27 tasks** | | **≈ 20 sessions** | |
 
 **Suggested order for a single implementer:** T00 → T01 → T02 → T03 → T04 → T06 → T05 → T07 → T08 → T09 → T10 → T11 → T14 → T15 → T16 → T12 → T13 → T17 → T18 → T19 → T20 → T21 → T22 → T23 → T24 → T25.
 (T12 after T14 so the Traefik image is in the first publish matrix; T05 before T07 so the realm exists for the frontend auth work.)

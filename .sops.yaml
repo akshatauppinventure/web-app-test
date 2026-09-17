@@ -6,5 +6,5 @@ creation_rules:
     age: "age1c87ztw79n3sk6s0a7j42z8cahe7wqvgaytme3kg6t7827meezsyqv8skmd"
   - path_regex: ^infra/secrets/core\.sops\.yaml$
     age: "age1c87ztw79n3sk6s0a7j42z8cahe7wqvgaytme3kg6t7827meezsyqv8skmd"
-  - path_regex: ^infra/tofu/upcloud/(terraform\.tfvars|.*\.tfstate(\.backup)?)\.sops$
+  - path_regex: ^infra/tofu/(upcloud|ovh)/(terraform\.tfvars|.*\.tfstate(\.backup)?)\.sops$
     age: "age1c87ztw79n3sk6s0a7j42z8cahe7wqvgaytme3kg6t7827meezsyqv8skmd"

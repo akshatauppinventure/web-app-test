@@ -33,3 +33,4 @@ two UpCloud VPS in New York, a Next.js frontend, a FastAPI backend, PostgreSQL, 
 | [0022](0022-poc-hostname-and-tls-duckdns.md) | POC hostname and TLS: DuckDNS + Let's Encrypt | Accepted |
 | [0023](0023-cloudflare-edge-deferred.md) | Cloudflare edge proxy (deferred) | Accepted |
 | [0024](0024-observability-deferred.md) | Observability (minimal for POC, full stack deferred) | Accepted |
+| [0025](0025-ovhcloud-second-provider-module.md) | OVHcloud Public Cloud as the second provider module | Accepted |

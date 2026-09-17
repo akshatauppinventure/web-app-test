@@ -89,7 +89,7 @@ verify-stack-digests: ## cosign-verify every ghcr.io digest referenced by the st
 	scripts/ci/verify-stack-digests.sh
 
 .PHONY: tofu-check
-tofu-check: ## Static checks for infra/tofu/upcloud (fmt, init -backend=false, validate, tflint, trivy config); no credentials needed
+tofu-check: ## Static checks for every infra/tofu/<provider> module (fmt, init -backend=false, validate, tflint, trivy config) + contract test; no credentials needed
 	scripts/test/tofu-check.sh
 
 .PHONY: host-check
