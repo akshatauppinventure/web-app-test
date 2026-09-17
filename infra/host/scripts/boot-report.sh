@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prints a first-boot / health summary to the VNC console (tty1) and to /var/log/boot-report.log so the
 # host can be diagnosed without SSH (T20: sshd listens on wg0 only, so a broken tunnel hides everything).
-# Runs last in cloud-init runcmd; safe to re-run any time. Never prints secrets (keys, tokens).
+# Runs last in cloud-init runcmd and, with --loop, every 2 minutes from bootcmd until cloud-init is done
+# (so a stuck package stage is visible too). Safe to re-run any time. Never prints secrets (keys, tokens).
 set -uo pipefail
 OUT="${BOOT_REPORT_OUT:-/dev/tty1}"; LOG="${BOOT_REPORT_LOG:-/var/log/boot-report.log}"
 report() {
@@ -16,7 +17,18 @@ report() {
   echo "wg-quick@wg0: $(systemctl is-active wg-quick@wg0 2>/dev/null); wg0 public key: $(cat /etc/wireguard/public.key 2>/dev/null)"
   wg show wg0 2>/dev/null | grep -E 'listening port|peer:|latest handshake|transfer' | sed 's/^/  /'
   echo "docker: $(systemctl is-active docker 2>/dev/null); docker-user-rules: $(systemctl is-active docker-user-rules 2>/dev/null)"
-  echo "cloud-init errors (last 5):"; grep -iE 'error|fail|Traceback' /var/log/cloud-init-output.log 2>/dev/null | grep -viE 'failed units: $|0 fail' | tail -5 | sed 's/^/  /'
+  # shellcheck disable=SC2009  # need the elapsed time column, pgrep has none
+  echo "busy: $(ps -eo etimes,comm --sort=-etimes 2>/dev/null | grep -E 'apt|dpkg|cloud-init|unattended|snap' | head -4 | awk '{printf "%s(%ss) ", $2, $1}')"
+  echo "cloud-init-output tail:"; tail -n 3 /var/log/cloud-init-output.log 2>/dev/null | cut -c1-110 | sed 's/^/  /'
+  echo "cloud-init errors (last 4):"; grep -iE 'error|fail|Traceback' /var/log/cloud-init-output.log 2>/dev/null | grep -viE 'failed units: $|0 fail' | tail -4 | cut -c1-110 | sed 's/^/  /'
   echo "===== end boot report ====="
 }
+if [[ "${1:-}" == "--loop" ]]; then
+  for _ in $(seq 1 30); do
+    report | tee -a "$LOG" > "$OUT" 2>/dev/null || true
+    cloud-init status 2>/dev/null | grep -qE "done|error|disabled" && exit 0
+    sleep 120
+  done
+  exit 0
+fi
 report | tee -a "$LOG" > "$OUT" 2>/dev/null || report | tee -a "$LOG"

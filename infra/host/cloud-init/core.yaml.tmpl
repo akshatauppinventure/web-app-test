@@ -10,6 +10,11 @@ package_update: true
 package_upgrade: true
 package_reboot_if_required: false
 
+# Early, detached progress reporter on the VNC console (tty1): write_files lands boot-report.sh a few
+# seconds after bootcmd, so the loop waits before its first run and stops once cloud-init is done (T20).
+bootcmd:
+  - [ sh, -c, "nohup sh -c 'sleep 75; exec /usr/local/sbin/boot-report.sh --loop' >/dev/null 2>&1 &" ]
+
 users:
   - name: __ADMIN_USER__
     groups: [sudo]
