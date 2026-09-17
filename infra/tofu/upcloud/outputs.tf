@@ -21,6 +21,6 @@ output "server_ids" {
 }
 
 output "firewall_rule_counts" {
-  description = "Must stay under 20 per server (ADR-0014 layer 1, OVH portability)"
+  description = "Must stay under 20 per server (ADR-0014 layer 1, OVH portability); empty when manage_provider_firewall = false (trial account)"
   value       = { for k, f in upcloud_firewall_rules.this : k => length(f.firewall_rule) }
 }

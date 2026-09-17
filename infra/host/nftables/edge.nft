@@ -5,6 +5,7 @@ flush ruleset
 
 define PUBLIC_IF = "__PUBLIC_IF__"
 define WG_IF = "wg0"
+define WG_PORT = __WG_PORT__
 define WG_NET = 10.10.0.0/24
 define ADMIN_PEERS = { 10.10.0.10-10.10.0.19 }
 define CORE_HOST = 10.10.0.2
@@ -23,7 +24,7 @@ table inet filter {
     ip6 nexthdr icmpv6 icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-neighbor-solicit, nd-neighbor-advert } accept
 
     # Public services: HTTP/HTTPS to Traefik (DNAT'd to the container; see forward) and WireGuard
-    iifname $PUBLIC_IF udp dport 51820 accept
+    iifname $PUBLIC_IF udp dport $WG_PORT accept
 
     # Admin SSH only over WireGuard from admin peers
     iifname $WG_IF ip saddr $ADMIN_PEERS tcp dport 22 accept

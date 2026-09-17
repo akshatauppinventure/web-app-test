@@ -147,9 +147,13 @@ The deploy bot must open PRs with an **installation token** so required checks r
 4. The laptop config is created in T20 once the servers' public keys exist (template: two peers, `AllowedIPs = 10.10.0.1/32` and `10.10.0.2/32`, `PersistentKeepalive = 25`, plus the pre-shared keys from `infra/secrets`).
 5. Verify: `wg pubkey < laptop.key` prints the same key as `laptop.pub`.
 
-## P6 · UpCloud account and API token — **done 2026-09-17** (account verified, `us-nyc1`, plans and the Ubuntu 26.04 template confirmed via the API)
+## P6 · UpCloud account and API token — **done 2026-09-17**, plus the trial exit (deposit) needed by T20
 
-1. https://signup.upcloud.com → create the account, verify email, add a **payment method** (Hub → Billing). Enable **two-factor authentication** on the account (Hub → Account → Security).
+**Owner decision 2026-09-17: stay in trial mode for the POC.** Consequences: WireGuard runs on UDP 33434 (the only UDP port the fixed firewall passes both ways), the provider firewall layer is the fixed trial rule set (`manage_provider_firewall = false`), and the trial ends after 30 days unless a deposit is made (resources are then removed). To leave trial mode later: make the deposit, set `manage_provider_firewall = true`, `tofu apply` (adds the rulesets; the port can stay 33434 or move back to 51820 with a re-provision).
+
+**Background.** Until a one-time deposit of at least $10 is made (Hub → Billing → Add funds, card verified with a $0/$1 authorization), the account is a *trial*: every server gets a fixed provider firewall that cannot be edited (`tofu apply` fails with `TRIAL_FIREWALL`) and that drops inbound UDP 51820, so the WireGuard tunnel from the laptop can never connect. Servers can be created in trial mode (2 cores / 4 GB total limit is not enforced on this account), but nothing can be administered. Make the deposit, then re-run `tofu apply` in `infra/tofu/upcloud` to create the rulesets.
+
+1. https://signup.upcloud.com → create the account, verify email, add a **payment method** (Hub → Billing) **and make the minimum $10 deposit** — that deposit is what ends the trial mode (fixed firewall, no UDP 51820 inbound). Enable **two-factor authentication** on the account (Hub → Account → Security).
 2. Create an API credential with the least access the module needs (servers, networks, storages):
    - Hub → **Account → API tokens** (or **People → API tokens**, naming varies) → **Create token**, name `web-app-test-tofu`, expiry ≤ 90 days. If the dialog offers permission scopes, allow only Servers, Networks, Storages and IP addresses. If tokens are not offered, create a **sub-account** (Hub → People → Add) with **API access** enabled, restricted to your laptop's public IP, and use its username/password instead.
    - Copy the token (**secret**) to the password manager.

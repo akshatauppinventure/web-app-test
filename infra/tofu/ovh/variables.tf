@@ -57,8 +57,9 @@ variable "private_network_cidr" {
 }
 
 variable "edge_private_ip" {
-  type    = string
-  default = "10.0.0.1"
+  description = "Private-network address of edge; x.1 is the SDN gateway on UpCloud and refused for servers"
+  type        = string
+  default     = "10.0.0.11"
 }
 
 variable "core_private_ip" {
@@ -80,6 +81,16 @@ variable "public_network_name" {
   description = "Name of the provider's public network (OVH: Ext-Net)"
   type        = string
   default     = "Ext-Net"
+}
+
+variable "wireguard_port" {
+  description = "UDP port WireGuard listens on (ADR-0015 default 51820; UpCloud trial accounts must use 33434, the only inbound+outbound UDP port their fixed firewall passes)"
+  type        = number
+  default     = 51820
+  validation {
+    condition     = var.wireguard_port >= 1 && var.wireguard_port <= 65535
+    error_message = "wireguard_port must be 1-65535."
+  }
 }
 
 variable "hostname_prefix" {

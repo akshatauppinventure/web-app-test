@@ -8,10 +8,10 @@ locals {
     edge = [
       { name = "http", comment = "HTTP to Traefik (ACME + redirect)", protocol = "tcp", port = 80 },
       { name = "https", comment = "HTTPS to Traefik", protocol = "tcp", port = 443 },
-      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = 51820 },
+      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = var.wireguard_port },
     ]
     core = [
-      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = 51820 },
+      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = var.wireguard_port },
     ]
   }
 

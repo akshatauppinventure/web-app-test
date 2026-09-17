@@ -8,9 +8,9 @@
 # Order matters: after edge rotates, the laptop must already know the new key before touching core.
 # Usage: finalize-wireguard.sh --edge-bootstrap-pub K --core-bootstrap-pub K --laptop-conf FILE
 #          --laptop-iface utunN --edge-endpoint IP:51820 --core-endpoint IP:51820 --peers-out FILE
-#          [--laptop-pub K] [--admin-user admin] [--edge-sdn 10.0.0.1:51820] [--core-sdn 10.0.0.2:51820]
+#          [--laptop-pub K] [--admin-user admin] [--edge-sdn 10.0.0.11:51820] [--core-sdn 10.0.0.2:51820]
 set -euo pipefail
-ADMIN_USER="admin"; EDGE_IP=10.10.0.1; CORE_IP=10.10.0.2; EDGE_SDN=10.0.0.1:51820; CORE_SDN=10.0.0.2:51820
+ADMIN_USER="admin"; EDGE_IP=10.10.0.1; CORE_IP=10.10.0.2; EDGE_SDN=10.0.0.11:51820; CORE_SDN=10.0.0.2:51820
 EDGE_OLD=""; CORE_OLD=""; LAPTOP_CONF=""; LAPTOP_IFACE=""; EDGE_EP=""; CORE_EP=""; PEERS_OUT=""; LAPTOP_PUB=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -46,7 +46,7 @@ rotate() { # host_ip -> prints new public key
   echo "$new"
 }
 remote_swap() { # host_ip old new peer_wg_ip peer_sdn_endpoint
-  "${SSH[@]}" "$ADMIN_USER@$1" "sudo wg set wg0 peer $2 remove; sudo wg set wg0 peer $3 allowed-ips $4/32 endpoint $5 persistent-keepalive 25 && sudo sed -i 's|^PublicKey = $2\$|PublicKey = $3|' /etc/wireguard/wg0.conf && sudo wg syncconf wg0 <(sudo wg-quick strip wg0)"
+  "${SSH[@]}" "$ADMIN_USER@$1" "sudo wg set wg0 peer $2 remove; sudo wg set wg0 peer $3 allowed-ips $4/32 endpoint $5 persistent-keepalive 25 && sudo sed -i -e 's|^PublicKey = $2\$|PublicKey = $3|' -e 's|^Endpoint = .*\$|Endpoint = $5|' /etc/wireguard/wg0.conf && sudo wg syncconf wg0 <(sudo wg-quick strip wg0)"
 }
 
 echo "== 1/4 edge: rotate"

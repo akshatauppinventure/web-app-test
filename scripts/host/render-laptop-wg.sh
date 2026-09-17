@@ -26,7 +26,9 @@ admin = next((a for a in d["admins"] if a["name"] == os.environ["ADMIN"]), None)
 if admin is None:
     sys.exit(f"admin {os.environ['ADMIN']} not in {peers}")
 key_re = re.compile(r"^[A-Za-z0-9+/]{43}=$")
-lines = ["[Interface]", f"PrivateKey = {os.environ['PRIV']}", f"Address = {admin['wg_ip']}/32", ""]
+port = int(d.get("port", 51820))
+# same ListenPort as the servers: with a fixed provider firewall that only passes this UDP port, replies must hit it too
+lines = ["[Interface]", f"PrivateKey = {os.environ['PRIV']}", f"Address = {admin['wg_ip']}/32", f"ListenPort = {port}", ""]
 for name in ("edge", "core"):
     s = d["servers"][name]
     if not key_re.match(s["public_key"]):

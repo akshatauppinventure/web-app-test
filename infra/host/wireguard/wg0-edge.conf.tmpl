@@ -1,7 +1,7 @@
 # /etc/wireguard/wg0.conf on VPS-A (rendered by cloud-init; ADR-0015). Bootstrap key rendered at provisioning, rotated on the host by wg-rotate-key.sh.
 [Interface]
 Address = 10.10.0.1/24
-ListenPort = 51820
+ListenPort = __WG_PORT__
 PrivateKey = __WG_PRIVATE_KEY__
 # Optional pre-shared keys pushed as secrets (T19): /etc/wireguard/psk-core, /etc/wireguard/psk-<admin>
 PostUp = /usr/local/sbin/wg-apply-psks.sh %i

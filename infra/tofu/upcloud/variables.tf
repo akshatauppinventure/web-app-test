@@ -60,13 +60,30 @@ variable "private_network_cidr" {
 }
 
 variable "edge_private_ip" {
-  type    = string
-  default = "10.0.0.1"
+  description = "Private-network address of edge; x.1 is the SDN gateway on UpCloud and refused for servers"
+  type        = string
+  default     = "10.0.0.11"
 }
 
 variable "core_private_ip" {
   type    = string
   default = "10.0.0.2"
+}
+
+variable "wireguard_port" {
+  description = "UDP port WireGuard listens on (ADR-0015 default 51820; UpCloud trial accounts must use 33434, the only inbound+outbound UDP port their fixed firewall passes)"
+  type        = number
+  default     = 51820
+  validation {
+    condition     = var.wireguard_port >= 1 && var.wireguard_port <= 65535
+    error_message = "wireguard_port must be 1-65535."
+  }
+}
+
+variable "manage_provider_firewall" {
+  description = "Create the per-server firewall rulesets (ADR-0014 layer 1). false on a trial account: its firewall is fixed (TRIAL_FIREWALL) and cannot be modified"
+  type        = bool
+  default     = true
 }
 
 variable "hostname_prefix" {
