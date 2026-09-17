@@ -2,7 +2,7 @@
 
 Second provider module with the **same contract** as `infra/tofu/upcloud` (checked by `scripts/test/tofu-contract.sh`): same variable and output names, same `terraform.tfvars` keys, same downstream steps (cloud-init render, `peers.yaml`, DuckDNS). Use it for the OVHcloud POC after the UpCloud one.
 
-Creates exactly: 2 instances (`<prefix>-edge` d2-4, `<prefix>-core` d2-8, newest public `Ubuntu 26.04` image, Ext-Net public interface + vRack private interface at 10.0.0.1/.2), 1 keypair, 1 private network + 1 subnet (VLAN 42, DHCP, no gateway), 2 security groups with 6 (edge: 80/443/51820, ICMP echo, private network, egress) and 4 (core) rules. Security groups are stateful, so no return-traffic rules; no IPv6 rules, so IPv6 is dropped as on UpCloud.
+Creates exactly: 2 instances (`<prefix>-edge` d2-4, `<prefix>-core` d2-8, newest public `Ubuntu 26.04` image, Ext-Net public interface + vRack private interface at 10.0.0.11/.2), 1 keypair, 1 private network + 1 subnet (VLAN 42, DHCP, no gateway), 2 security groups with 6 (edge: 80/443/51820, ICMP echo, private network, egress) and 4 (core) rules. Security groups are stateful, so no return-traffic rules; no IPv6 rules, so IPv6 is dropped as on UpCloud.
 
 Target: **OVHcloud US** (Vint Hill, VA = `US-EAST-VA-1`), a separate legal entity from OVHcloud EU/CA with its own control panel (`us.ovhcloud.com`) and OpenStack endpoint `https://auth.cloud.ovh.us/v3`. Public Cloud instances, not the VPS range: VPS has no OpenTofu-driven install with cloud-init user data and no private network (ADR-0025).
 
