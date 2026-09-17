@@ -48,3 +48,6 @@ coverage/
 .idea/
 .vscode/
 *.swp
+# OpenTofu saved plans contain user_data (bootstrap keys); never commit
+infra/tofu/**/plan.bin
+*.tfplan

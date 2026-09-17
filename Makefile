@@ -93,8 +93,9 @@ tofu-check: ## Static checks for every infra/tofu/<provider> module (fmt, init -
 	scripts/test/tofu-check.sh
 
 .PHONY: host-check
-host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules) in ubuntu:26.04 containers
+host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules, T20 bootstrap scripts) in ubuntu:26.04 containers
 	scripts/test/host-config.sh
+	scripts/test/host-bootstrap.sh
 
 .PHONY: stacks-check stacks-dryrun
 stacks-check: ## Static policy checks for every compose file (config, published ports, hardening baseline)

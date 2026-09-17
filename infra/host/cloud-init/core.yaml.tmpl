@@ -140,6 +140,14 @@ __DOCKER_USER_RULES__
     permissions: "0755"
     content: |
 __WG_APPLY_PSKS__
+  - path: /usr/local/sbin/wg-rotate-key.sh
+    permissions: "0755"
+    content: |
+__WG_ROTATE_KEY__
+  - path: /usr/local/sbin/resolve-public-if.sh
+    permissions: "0755"
+    content: |
+__RESOLVE_PUBLIC_IF__
   - path: /usr/local/sbin/healthcheck.sh
     permissions: "0755"
     content: |
@@ -251,11 +259,13 @@ __BOOTSTRAP_COMPOSE__
 runcmd:
   # sysctl + nftables first (policy DROP before Docker starts)
   - sysctl --system
+  # Public interface name differs per provider (UpCloud/OVH): resolve "auto" from the default route first
+  - /usr/local/sbin/resolve-public-if.sh /etc/nftables.conf /etc/app/host.env
   - systemctl enable --now nftables
-  # WireGuard: generate the host key pair (private key never leaves the host), render wg0.conf
-  - umask 077 && wg genkey | tee /etc/wireguard/private.key | wg pubkey > /etc/wireguard/public.key
-  - sed "s|__WG_PRIVATE_KEY__|$(cat /etc/wireguard/private.key)|" /etc/wireguard/wg0.conf.tmpl > /etc/wireguard/wg0.conf
-  - chmod 600 /etc/wireguard/wg0.conf
+  # WireGuard: the bootstrap key pair was rendered into user_data so every peer is valid at first boot (T20);
+  # the admin replaces it on first contact with wg-rotate-key.sh (key generated here, never leaves the host)
+  - umask 077 && sed -n 's/^PrivateKey = //p' /etc/wireguard/wg0.conf.tmpl | head -1 > /etc/wireguard/private.key && wg pubkey < /etc/wireguard/private.key > /etc/wireguard/public.key
+  - install -m 600 /etc/wireguard/wg0.conf.tmpl /etc/wireguard/wg0.conf
   - systemctl enable --now wg-quick@wg0
   - systemctl daemon-reload
   - systemctl restart ssh
