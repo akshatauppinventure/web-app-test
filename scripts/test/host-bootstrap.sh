@@ -108,13 +108,13 @@ export STUB_LOG="$OUT/stub.log"; : > "$STUB_LOG"
 PATH="$STUB:$PATH" scripts/host/finalize-wireguard.sh \
   --edge-bootstrap-pub BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= --core-bootstrap-pub CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC= \
   --laptop-conf "$OUT/webapptest.conf" --laptop-iface utun9 --edge-endpoint 198.51.100.10:51820 --core-endpoint 198.51.100.20:51820 \
-  --peers-out "$OUT/peers-snippet.yaml" --laptop-pub DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD= > "$OUT/finalize.out"
+  --edge-sdn 10.0.0.11:51820 --core-sdn 10.0.0.2:51820 --peers-out "$OUT/peers-snippet.yaml" --laptop-pub DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD= > "$OUT/finalize.out"
 { grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.1 ' | grep -q 'psk-core.*NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=.*DDDDDDDD' \
   && grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.2 ' | grep -q 'psk-edge.*NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=.*DDDDDDDD'; } || fail "finalize did not write psk-map with the rotated keys: $(grep psk-map "$STUB_LOG")"
 { grep -q 'ssh .*admin@10.10.0.1 sudo /usr/local/sbin/wg-rotate-key.sh' "$STUB_LOG" && grep -q 'ssh .*admin@10.10.0.2 sudo /usr/local/sbin/wg-rotate-key.sh' "$STUB_LOG"; } || fail "finalize did not rotate both hosts: $(cat "$STUB_LOG")"
 grep -q 'ssh .*admin@10.10.0.2 .*peer BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= remove' "$STUB_LOG" || fail "finalize did not remove the edge bootstrap peer on core"
-grep -q 'ssh .*admin@10.10.0.2 .*peer NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1= allowed-ips 10.10.0.1/32 endpoint 10.0.0.1:51820' "$STUB_LOG" || fail "finalize did not add the new edge peer on core"
-grep -q 'ssh .*admin@10.10.0.1 .*peer NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2= allowed-ips 10.10.0.2/32 endpoint 10.0.0.2:51820' "$STUB_LOG" || fail "finalize did not add the new core peer on edge"
+grep -q 'ssh .*admin@10.10.0.2 .*peer NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1= allowed-ips 10.10.0.1/32 endpoint 10.0.0.11:51820.*Endpoint = 10.0.0.11:51820' "$STUB_LOG" || fail "finalize did not add the new edge peer on core"
+grep -q 'ssh .*admin@10.10.0.1 .*peer NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2= allowed-ips 10.10.0.2/32 endpoint 10.0.0.2:51820.*Endpoint = 10.0.0.2:51820' "$STUB_LOG" || fail "finalize did not add the new core peer on edge"
 { grep -q '^PublicKey = NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=' "$OUT/webapptest.conf" && grep -q '^PublicKey = NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=' "$OUT/webapptest.conf" \
   && ! grep -q 'BBBBBBBB\|CCCCCCCC' "$OUT/webapptest.conf"; } || fail "laptop config not updated with the rotated keys"
 grep -q 'wg set utun9 peer BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= remove' "$STUB_LOG" || fail "finalize did not update the live laptop tunnel"

@@ -36,7 +36,7 @@ subs = {
     "__CORE_PUBLIC_KEY__": env.get("CORE_PUBLIC_KEY", ""),
     "__CORE_ENDPOINT__": env.get("CORE_ENDPOINT", "10.0.0.2:51820"),
     "__EDGE_PUBLIC_KEY__": env.get("EDGE_PUBLIC_KEY", ""),
-    "__EDGE_ENDPOINT__": env.get("EDGE_ENDPOINT", "10.0.0.1:51820"),
+    "__EDGE_ENDPOINT__": env.get("EDGE_ENDPOINT", "10.0.0.11:51820"),
 }
 files = {
     "__DAEMON_JSON__": here / "docker/daemon.json",

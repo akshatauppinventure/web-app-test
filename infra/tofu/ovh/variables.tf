@@ -57,8 +57,9 @@ variable "private_network_cidr" {
 }
 
 variable "edge_private_ip" {
-  type    = string
-  default = "10.0.0.1"
+  description = "Private-network address of edge; x.1 is the SDN gateway on UpCloud and refused for servers"
+  type        = string
+  default     = "10.0.0.11"
 }
 
 variable "core_private_ip" {

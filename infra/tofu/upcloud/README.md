@@ -1,6 +1,6 @@
 # OpenTofu module: UpCloud (ADR-0002, ADR-0004, ADR-0014, ADR-0015)
 
-Creates exactly: 2 servers (`<prefix>-edge` 2xCPU-4GB, `<prefix>-core` 4xCPU-8GB, Ubuntu 26.04 template, public IPv4 only, private SDN interface), 1 private network + 1 router, and one stateless firewall ruleset per server (edge: 80/443/51820 + return traffic; core: 51820 + return traffic; IPv6 dropped; default drop in / accept out; 12–14 rules).
+Creates exactly: 2 servers (`<prefix>-edge` 2xCPU-4GB, `<prefix>-core` 4xCPU-8GB, Ubuntu 26.04 template, public IPv4 only, private SDN interface at 10.0.0.11/.2 — x.1 is the SDN gateway and is refused for servers), 1 private network + 1 router, and one stateless firewall ruleset per server (edge: 80/443/51820 + return traffic; core: 51820 + return traffic; IPv6 dropped; default drop in / accept out; 12–14 rules).
 
 ## Usage (owner, T20)
 
