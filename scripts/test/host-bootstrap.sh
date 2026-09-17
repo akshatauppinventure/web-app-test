@@ -30,6 +30,7 @@ for role in edge core; do
   grep -q 'wg-rotate-key.sh' "$OUT/$role.yaml" || fail "$role: wg-rotate-key.sh not embedded"
   grep -q 'resolve-public-if.sh' "$OUT/$role.yaml" || fail "$role: resolve-public-if.sh not embedded"
   awk '/^runcmd:/{r=1; next} /^[a-z_]+:/{r=0} r' "$OUT/$role.yaml" | grep -v '^\s*#' | grep -vE '^\s*$' | tail -1 | grep -q 'boot-report.sh' || fail "$role: boot-report.sh must be the last runcmd entry"
+  awk '/^bootcmd:/{b=1; next} /^[a-z_]+:/{b=0} b' "$OUT/$role.yaml" | grep -q 'boot-report.sh --loop' || fail "$role: bootcmd must start the boot-report loop"
   awk '/^runcmd:/{r=1} r' "$OUT/$role.yaml" | grep -q 'wg genkey' && fail "$role: runcmd still generates a key at first boot (would not match the rendered peers)"
 done
 pass "rendered cloud-init uses the bootstrap keys and embeds the rotate/resolve scripts"
@@ -90,6 +91,11 @@ new=$(sed -n "s/^PrivateKey = //p" /t/wg/wg0.conf); [ "$new" != "$k" ] || { echo
 echo "ok: wg-rotate-key.sh rotates in place and prints the new public key"
 # boot report: runs without wg/nft/cloud-init present, prints every section, never fails
 BOOT_REPORT_OUT=/t/boot-report.txt BOOT_REPORT_LOG=/t/boot-report.log /s/boot-report.sh
+grep -q "busy:" /t/boot-report.txt && grep -q "cloud-init-output tail:" /t/boot-report.txt || { echo "report misses the activity sections"; exit 1; }
+# --loop exits immediately when cloud-init reports done (stub), after one report
+mkdir -p /t/bin && printf "#!/bin/sh\necho status: done\n" > /t/bin/cloud-init && chmod +x /t/bin/cloud-init
+PATH=/t/bin:$PATH BOOT_REPORT_OUT=/t/loop.txt BOOT_REPORT_LOG=/t/loop.log timeout 20 /s/boot-report.sh --loop || { echo "loop did not exit on done"; exit 1; }
+[ "$(grep -c "boot report" /t/loop.txt)" = 1 ] && echo "ok: boot-report.sh --loop reports once and stops when cloud-init is done"
 grep -q "boot report" /t/boot-report.txt && grep -q "wg-quick@wg0:" /t/boot-report.txt && grep -q "end boot report" /t/boot-report.log && echo "ok: boot-report.sh prints the summary to the console target and the log"
 # resolver: default route interface replaces "auto" in nftables.conf and host.env
 /s/resolve-public-if.sh /t/edge-auto.nft /t/host.env
