@@ -16,11 +16,11 @@ locals {
   edge_service_rules = [
     { comment = "HTTP to Traefik (ACME + redirect)", protocol = "tcp", destination_port_start = "80", destination_port_end = "80" },
     { comment = "HTTPS to Traefik", protocol = "tcp", destination_port_start = "443", destination_port_end = "443" },
-    { comment = "WireGuard", protocol = "udp", destination_port_start = "51820", destination_port_end = "51820" },
+    { comment = "WireGuard", protocol = "udp", destination_port_start = tostring(var.wireguard_port), destination_port_end = tostring(var.wireguard_port) },
   ]
 
   core_service_rules = [
-    { comment = "WireGuard", protocol = "udp", destination_port_start = "51820", destination_port_end = "51820" },
+    { comment = "WireGuard", protocol = "udp", destination_port_start = tostring(var.wireguard_port), destination_port_end = tostring(var.wireguard_port) },
   ]
 
   rulesets = {
@@ -30,7 +30,7 @@ locals {
 }
 
 resource "upcloud_firewall_rules" "this" {
-  for_each  = upcloud_server.this
+  for_each  = var.manage_provider_firewall ? upcloud_server.this : {}
   server_id = each.value.id
 
   # 1. Drop all IPv6 (no IPv6 interface exists, belt and braces)

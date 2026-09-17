@@ -83,6 +83,16 @@ variable "public_network_name" {
   default     = "Ext-Net"
 }
 
+variable "wireguard_port" {
+  description = "UDP port WireGuard listens on (ADR-0015 default 51820; UpCloud trial accounts must use 33434, the only inbound+outbound UDP port their fixed firewall passes)"
+  type        = number
+  default     = 51820
+  validation {
+    condition     = var.wireguard_port >= 1 && var.wireguard_port <= 65535
+    error_message = "wireguard_port must be 1-65535."
+  }
+}
+
 variable "hostname_prefix" {
   description = "Prefix for server hostnames (<prefix>-edge, <prefix>-core)"
   type        = string

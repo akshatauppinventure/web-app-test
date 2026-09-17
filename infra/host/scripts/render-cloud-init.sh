@@ -2,7 +2,7 @@
 # Renders infra/host/cloud-init/<role>.yaml.tmpl into a complete cloud-config: substitutes the
 # host variables from a vars file and embeds the repo's scripts/units/configs (indented) so the
 # committed files are the single source of truth. Usage: render-cloud-init.sh <edge|core> <vars-file> [out]
-# vars file (KEY=VALUE): HOSTNAME, ADMIN_USER, ADMIN_SSH_PUBKEY, PUBLIC_HOST, PUBLIC_IF (name or "auto"),
+# vars file (KEY=VALUE): HOSTNAME, ADMIN_USER, ADMIN_SSH_PUBKEY, PUBLIC_HOST, PUBLIC_IF (name or "auto"), WG_PORT (default 51820),
 #                        WG_PRIVATE_KEY (this host's bootstrap key, T20), ADMIN_PUBLIC_KEY,
 #                        CORE_PUBLIC_KEY/CORE_ENDPOINT (edge) or EDGE_PUBLIC_KEY/EDGE_ENDPOINT (core)
 # Every WireGuard key must be a real key (44-char base64): a placeholder would make wg-quick fail at
@@ -17,6 +17,8 @@ set -a
 set +a
 : "${HOSTNAME:?}" "${ADMIN_USER:?}" "${ADMIN_SSH_PUBKEY:?}" "${PUBLIC_HOST:?}" "${PUBLIC_IF:?}" "${ADMIN_PUBLIC_KEY:?}" "${WG_PRIVATE_KEY:?}"
 PEER_VAR="$([[ $ROLE == edge ]] && echo CORE_PUBLIC_KEY || echo EDGE_PUBLIC_KEY)"
+WG_PORT="${WG_PORT:-51820}"; export WG_PORT
+[[ "$WG_PORT" =~ ^[0-9]{1,5}$ && "$WG_PORT" -ge 1 && "$WG_PORT" -le 65535 ]] || { echo "render-cloud-init: WG_PORT must be 1-65535 (got '$WG_PORT')" >&2; exit 1; }
 for v in WG_PRIVATE_KEY ADMIN_PUBLIC_KEY "$PEER_VAR"; do
   [[ "${!v:-}" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo "render-cloud-init: $v must be a 44-character base64 WireGuard key (got '${!v:-<unset>}')" >&2; exit 1; }
 done
@@ -31,12 +33,12 @@ def indent(path, n=6):
 env = os.environ
 subs = {
     "__HOSTNAME__": env["HOSTNAME"], "__ADMIN_USER__": env["ADMIN_USER"], "__ADMIN_SSH_PUBKEY__": env["ADMIN_SSH_PUBKEY"],
-    "__PUBLIC_HOST__": env["PUBLIC_HOST"], "__ADMIN_PUBLIC_KEY__": env["ADMIN_PUBLIC_KEY"],
+    "__PUBLIC_HOST__": env["PUBLIC_HOST"], "__ADMIN_PUBLIC_KEY__": env["ADMIN_PUBLIC_KEY"], "__WG_PORT__": env["WG_PORT"],
     "__WG_PRIVATE_KEY__": env["WG_PRIVATE_KEY"],
     "__CORE_PUBLIC_KEY__": env.get("CORE_PUBLIC_KEY", ""),
-    "__CORE_ENDPOINT__": env.get("CORE_ENDPOINT", "10.0.0.2:51820"),
+    "__CORE_ENDPOINT__": env.get("CORE_ENDPOINT", "10.0.0.2:" + env["WG_PORT"]),
     "__EDGE_PUBLIC_KEY__": env.get("EDGE_PUBLIC_KEY", ""),
-    "__EDGE_ENDPOINT__": env.get("EDGE_ENDPOINT", "10.0.0.11:51820"),
+    "__EDGE_ENDPOINT__": env.get("EDGE_ENDPOINT", "10.0.0.11:" + env["WG_PORT"]),
 }
 files = {
     "__DAEMON_JSON__": here / "docker/daemon.json",

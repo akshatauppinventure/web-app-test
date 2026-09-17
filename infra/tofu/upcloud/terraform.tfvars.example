@@ -2,5 +2,7 @@
 admin_ssh_public_key = "ssh-ed25519 AAAA... owner@laptop"
 cloud_init_edge_path = "../../../.tofu-rendered/edge.yaml"
 cloud_init_core_path = "../../../.tofu-rendered/core.yaml"
+# wireguard_port           = 51820   # 33434 on a trial account (fixed firewall passes only that UDP port both ways)
+# manage_provider_firewall = true    # false on a trial account (TRIAL_FIREWALL)
 # zone          = "us-nyc1"
 # template_name = "Ubuntu Server 26.04 LTS (Resolute Raccoon)"

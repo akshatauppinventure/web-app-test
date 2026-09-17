@@ -15,7 +15,7 @@ keys="$(docker run --rm "$IMG" bash -c 'apt-get update -qq >/dev/null 2>&1; apt-
 WG_PRIV="${keys%% *}"; WG_PUB="${keys##* }"
 for role in edge core; do
   infra/host/scripts/render-cloud-init.sh "$role" scripts/test/host-vars.example "$OUT/$role.yaml"
-  sed "s/__PUBLIC_IF__/eth0/" "infra/host/nftables/$role.nft" > "$OUT/$role.nft"
+  sed -e "s/__PUBLIC_IF__/eth0/" -e "s/__WG_PORT__/51820/" "infra/host/nftables/$role.nft" > "$OUT/$role.nft"
   WG_PRIV="$WG_PRIV" WG_PUB="$WG_PUB" python3 - "infra/host/wireguard/wg0-$role.conf.tmpl" "$OUT/wg0-$role.conf" <<'PY2'
 import os, sys
 t = open(sys.argv[1]).read()

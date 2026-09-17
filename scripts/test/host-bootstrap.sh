@@ -43,21 +43,31 @@ awk '/^runcmd:/{r=1} r && /enable --now nftables/{print NR; exit}' "$OUT/edge-au
 sed 's/__PUBLIC_IF__/auto/' infra/host/nftables/edge.nft > "$OUT/edge-auto.nft"
 printf 'HOST_ROLE=edge\nPUBLIC_IF=auto\n' > "$OUT/host.env"
 
+# 3b. WG_PORT: default 51820 everywhere; an override (trial-mode UpCloud: 33434) reaches wg0.conf, nftables and the defaults.
+grep -q '^ *ListenPort = 51820$' "$OUT/edge.yaml" || fail "default ListenPort 51820 not rendered"
+{ grep -q 'define WG_PORT = 51820$' "$OUT/edge.yaml" && grep -q 'udp dport .WG_PORT accept' "$OUT/edge.yaml"; } || fail "default nftables WireGuard port not rendered"
+sed -e 's/^EDGE_ENDPOINT=.*/EDGE_ENDPOINT=10.0.0.11:33434/' scripts/test/host-vars.example > "$OUT/port.vars"; echo "WG_PORT=33434" >> "$OUT/port.vars"
+$R core "$OUT/port.vars" "$OUT/core-port.yaml"
+{ grep -q '^ *ListenPort = 33434$' "$OUT/core-port.yaml" && grep -q 'define WG_PORT = 33434$' "$OUT/core-port.yaml" \
+  && grep -q '^ *Endpoint = 10.0.0.11:33434$' "$OUT/core-port.yaml" && ! grep -q '51820' "$OUT/core-port.yaml"; } || fail "WG_PORT=33434 not applied everywhere: $(grep -n '51820\|ListenPort\|dport' "$OUT/core-port.yaml" | head)"
+echo "WG_PORT=99999" >> "$OUT/port.vars"; ! $R core "$OUT/port.vars" "$OUT/bad.yaml" 2>/dev/null || fail "render accepted an invalid WG_PORT"
+pass "WG_PORT renders into ListenPort, nftables and endpoints (default 51820, override 33434, invalid rejected)"
+
 # 4. Laptop config renders from peers.yaml + outputs (fake keys), 5. rotate script, 6. resolver — all in containers.
 LAPTOP_KEY="$OUT/laptop.key"; printf 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n' > "$LAPTOP_KEY"
 python3 - "$OUT/peers.yaml" <<'PY'
 import sys
 open(sys.argv[1], "w").write("""network: 10.10.0.0/24
-port: 51820
+port: 33434
 servers:
-  edge: {wg_ip: 10.10.0.1, public_key: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", endpoint_for_admins: "198.51.100.10:51820"}
-  core: {wg_ip: 10.10.0.2, public_key: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=", endpoint_for_admins: "198.51.100.20:51820"}
+  edge: {wg_ip: 10.10.0.1, public_key: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", endpoint_for_admins: "198.51.100.10:33434"}
+  core: {wg_ip: 10.10.0.2, public_key: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=", endpoint_for_admins: "198.51.100.20:33434"}
 admins:
   - {name: owner-laptop, wg_ip: 10.10.0.10, public_key: "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD="}
 """)
 PY
 scripts/host/render-laptop-wg.sh "$OUT/peers.yaml" "$LAPTOP_KEY" "$OUT/webapptest.conf" >/dev/null
-{ grep -q '^Endpoint = 198.51.100.10:51820' "$OUT/webapptest.conf" && grep -q '^AllowedIPs = 10.10.0.2/32' "$OUT/webapptest.conf" \
+{ grep -q '^Endpoint = 198.51.100.10:33434' "$OUT/webapptest.conf" && grep -q '^ListenPort = 33434$' "$OUT/webapptest.conf" && grep -q '^AllowedIPs = 10.10.0.2/32' "$OUT/webapptest.conf" \
   && grep -q '^Address = 10.10.0.10/32' "$OUT/webapptest.conf" && ! grep -q 'PresharedKey' "$OUT/webapptest.conf"; } || fail "laptop config wrong: $(cat "$OUT/webapptest.conf")"
 printf 'EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE=\n' > "$OUT/psk-edge"; printf 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF=\n' > "$OUT/psk-core"
 scripts/host/render-laptop-wg.sh "$OUT/peers.yaml" "$LAPTOP_KEY" "$OUT/webapptest-psk.conf" --psk-edge "$OUT/psk-edge" --psk-core "$OUT/psk-core" >/dev/null
@@ -107,7 +117,7 @@ chmod +x "$STUB"/*
 export STUB_LOG="$OUT/stub.log"; : > "$STUB_LOG"
 PATH="$STUB:$PATH" scripts/host/finalize-wireguard.sh \
   --edge-bootstrap-pub BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= --core-bootstrap-pub CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC= \
-  --laptop-conf "$OUT/webapptest.conf" --laptop-iface utun9 --edge-endpoint 198.51.100.10:51820 --core-endpoint 198.51.100.20:51820 \
+  --laptop-conf "$OUT/webapptest.conf" --laptop-iface utun9 --edge-endpoint 198.51.100.10:33434 --core-endpoint 198.51.100.20:33434 \
   --edge-sdn 10.0.0.11:51820 --core-sdn 10.0.0.2:51820 --peers-out "$OUT/peers-snippet.yaml" --laptop-pub DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD= > "$OUT/finalize.out"
 { grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.1 ' | grep -q 'psk-core.*NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=.*DDDDDDDD' \
   && grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.2 ' | grep -q 'psk-edge.*NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=.*DDDDDDDD'; } || fail "finalize did not write psk-map with the rotated keys: $(grep psk-map "$STUB_LOG")"
