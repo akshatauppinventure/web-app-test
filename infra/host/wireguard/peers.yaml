@@ -2,7 +2,7 @@
 # never leave it. Pre-shared keys are SOPS secrets (infra/secrets/*.sops.yaml, T19).
 # Server keys are filled in during provisioning (T20) after cloud-init generated them.
 network: 10.10.0.0/24
-port: 33434   # UpCloud trial account (PLAN deviation 5); ADR-0015 default is 51820
+port: 51820
 servers:
   edge:
     wg_ip: 10.10.0.1
