@@ -34,11 +34,12 @@ PY2
 done
 pass "encrypt/decrypt round trip for edge and core with a throwaway age key"
 [[ "$(grep '^web_bff_client_secret' "$work/edge.yaml")" == "$(grep '^web_bff_client_secret' "$work/core.yaml")" ]] || fail "web_bff_client_secret differs between hosts"
-[[ "$(awk '$1=="wireguard_psk_core:"{print $2}' "$work/edge.yaml")" == "$(awk '$1=="wireguard_psk_edge:"{print $2}' "$work/core.yaml")" ]] || fail "WireGuard PSK differs between hosts"
+[[ "$(grep '^portainer_agent_secret' "$work/edge.yaml")" == "$(grep '^portainer_agent_secret' "$work/core.yaml")" ]] || fail "portainer_agent_secret differs between hosts"
 pass "shared values consistent across hosts (--shared-from)"
 out="$(SOPS_CONFIG="$work/sops.yaml" SECRETS_FILE="$work/core.sops.yaml" scripts/secrets/secrets-push.sh core --dry-run)"
 grep -q "restic_password -> /etc/app/secrets/restic_password (owner 0, mode 0400)" <<<"$out" || fail "dry run output unexpected: $out"
-grep -q "wireguard_psk_edge -> /etc/wireguard/psk-edge (owner 0, mode 0600)" <<<"$out" || fail "psk destination unexpected"
+! grep -qi "wireguard" <<<"$out" || fail "dry run still lists removed tunnel secrets"
+grep -q "would push core secrets to webapptest-core" <<<"$out" || fail "default SSH target is not the webapptest-core alias: $out"
 grep -qE '[A-Za-z0-9]{40}' <<<"$out" && fail "dry run printed a value" || true
 pass "secrets-push --dry-run prints destinations and modes only"
 scripts/secrets/check-schema.sh

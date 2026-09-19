@@ -1,6 +1,6 @@
 # ADR-0011: Auth integration: BFF sessions, JWT validation, RLS
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); access model superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0007, ADR-0008, ADR-0009, ADR-0010

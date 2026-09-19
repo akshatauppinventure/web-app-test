@@ -23,7 +23,7 @@ two UpCloud VPS in New York, a Next.js frontend, a FastAPI backend, PostgreSQL, 
 | [0012](0012-reverse-proxy-traefik-file-provider.md) | Reverse proxy: Traefik with the file provider | Accepted |
 | [0013](0013-waf-and-intrusion-prevention-crowdsec.md) | WAF and intrusion prevention: CrowdSec | Accepted |
 | [0014](0014-network-firewall-layers-and-docker.md) | Network firewall layers and Docker port exposure | Accepted |
-| [0015](0015-wireguard-admin-and-site-to-site.md) | WireGuard for admin access and site-to-site traffic | Accepted |
+| [0015](0015-wireguard-admin-and-site-to-site.md) | WireGuard for admin access and site-to-site traffic | Superseded by ADR-0026 |
 | [0016](0016-secrets-sops-age.md) | Secrets management: SOPS + age | Accepted |
 | [0017](0017-ci-github-actions-ghcr.md) | CI: GitHub Actions and GHCR | Accepted |
 | [0018](0018-cd-gitops-portainer-polling.md) | CD: GitOps with Portainer polling | Accepted |
@@ -34,3 +34,4 @@ two UpCloud VPS in New York, a Next.js frontend, a FastAPI backend, PostgreSQL, 
 | [0023](0023-cloudflare-edge-deferred.md) | Cloudflare edge proxy (deferred) | Accepted |
 | [0024](0024-observability-deferred.md) | Observability (minimal for POC, full stack deferred) | Accepted |
 | [0025](0025-ovhcloud-second-provider-module.md) | OVHcloud Public Cloud as the second provider module | Accepted |
+| [0026](0026-remove-wireguard-public-ssh-private-network.md) | Remove WireGuard from the POC; key-only public SSH and the provider private network | Accepted |

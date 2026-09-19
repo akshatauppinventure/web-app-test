@@ -1,6 +1,6 @@
 # ADR-0020: Image and version pinning policy
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); access model superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0004 to ADR-0013, ADR-0017, ADR-0019

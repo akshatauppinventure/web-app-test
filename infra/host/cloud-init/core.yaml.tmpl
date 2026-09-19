@@ -1,5 +1,5 @@
 #cloud-config
-# VPS-B (core) first-boot configuration (ADR-0004, ADR-0005, ADR-0006, ADR-0014, ADR-0015,
+# VPS-B (core) first-boot configuration (ADR-0004, ADR-0005, ADR-0006, ADR-0014, ADR-0026,
 # ADR-0021, ADR-0024). Rendered by infra/host/scripts/render-cloud-init.sh from a vars file; the
 # placeholders are substituted there and the repo's scripts/units/configs are embedded.
 # Secrets are never part of this file (T19 pushes them out of band).
@@ -100,7 +100,6 @@ packages:
   - docker-ce-cli
   - containerd.io
   - docker-compose-plugin
-  - wireguard-tools
   - nftables
   - unattended-upgrades
   - auditd
@@ -117,7 +116,7 @@ write_files:
     permissions: "0644"
     content: |
       HOST_ROLE=core
-      PEER_IP=10.10.0.1
+      PEER_IP=__EDGE_PRIVATE_IP__
       PUBLIC_HOST=__PUBLIC_HOST__
       PUBLIC_IF=__PUBLIC_IF__
       NOTIFY_WEBHOOK_URL=
@@ -129,26 +128,10 @@ __DAEMON_JSON__
     permissions: "0644"
     content: |
 __NFT_RULES__
-  - path: /etc/wireguard/wg0.conf.tmpl
-    permissions: "0600"
-    content: |
-__WG_TEMPLATE__
-  - path: /etc/wireguard/psk-map
-    permissions: "0600"
-    content: |
-      # <peer public key> <psk file in /etc/wireguard>  (filled during provisioning, T20)
   - path: /usr/local/sbin/docker-user-rules.sh
     permissions: "0755"
     content: |
 __DOCKER_USER_RULES__
-  - path: /usr/local/sbin/wg-apply-psks.sh
-    permissions: "0755"
-    content: |
-__WG_APPLY_PSKS__
-  - path: /usr/local/sbin/wg-rotate-key.sh
-    permissions: "0755"
-    content: |
-__WG_ROTATE_KEY__
   - path: /usr/local/sbin/resolve-public-if.sh
     permissions: "0755"
     content: |
@@ -165,7 +148,7 @@ __HEALTHCHECK__
     permissions: "0644"
     content: |
 __UNIT_DOCKER_USER_RULES__
-  - path: /etc/systemd/system/docker.service.d/wireguard.conf
+  - path: /etc/systemd/system/docker.service.d/ordering.conf
     permissions: "0644"
     content: |
 __UNIT_DOCKER_DROPIN__
@@ -212,9 +195,9 @@ __BOOTSTRAP_COMPOSE__
   - path: /etc/ssh/sshd_config.d/10-hardening.conf
     permissions: "0644"
     content: |
-      # ADR-0004: keys only, admin user only, WireGuard address only (ip_nonlocal_bind lets sshd
-      # start before wg0 exists; nftables allows 22 only on wg0 anyway)
-      ListenAddress 10.10.0.2
+      # ADR-0004, ADR-0026: keys only, admin user only; nftables limits port 22 to the allowed
+      # sources (ADMIN_SSH_CIDRS) with a per-source rate limit. TCP forwarding stays on for the
+      # admin UIs (Portainer, Keycloak admin console) through ssh -L.
       PermitRootLogin no
       PasswordAuthentication no
       KbdInteractiveAuthentication no
@@ -227,12 +210,6 @@ __BOOTSTRAP_COMPOSE__
       LoginGraceTime 30
       ClientAliveInterval 300
       ClientAliveCountMax 2
-  - path: /etc/systemd/system/ssh.service.d/wireguard.conf
-    permissions: "0644"
-    content: |
-      [Unit]
-      After=wg-quick@wg0.service
-      Wants=wg-quick@wg0.service
   - path: /etc/sysctl.d/90-hardening.conf
     permissions: "0644"
     content: |
@@ -271,14 +248,9 @@ runcmd:
   # Public interface name differs per provider (UpCloud/OVH): resolve "auto" from the default route first
   - /usr/local/sbin/resolve-public-if.sh /etc/nftables.conf /etc/app/host.env
   - systemctl enable --now nftables
-  # WireGuard: the bootstrap key pair was rendered into user_data so every peer is valid at first boot (T20);
-  # the admin replaces it on first contact with wg-rotate-key.sh (key generated here, never leaves the host)
-  - umask 077 && sed -n 's/^PrivateKey = //p' /etc/wireguard/wg0.conf.tmpl | head -1 > /etc/wireguard/private.key && wg pubkey < /etc/wireguard/private.key > /etc/wireguard/public.key
-  - install -m 600 /etc/wireguard/wg0.conf.tmpl /etc/wireguard/wg0.conf
-  - systemctl enable --now wg-quick@wg0
   - systemctl daemon-reload
   - systemctl restart ssh
-  # Docker: ordering drop-in, hardened daemon.json, DOCKER-USER rules, docker group for the admin
+  # Docker: ordering drop-in (after nftables and the network), hardened daemon.json, DOCKER-USER rules, docker group for the admin
   - usermod -aG docker __ADMIN_USER__
   - systemctl enable --now docker
   - systemctl enable --now docker-user-rules.service
@@ -289,8 +261,8 @@ runcmd:
   - systemctl enable --now healthcheck.timer
   - systemctl enable --now pg-backup.timer restic-check.timer
   # Portainer bootstrap starts once the secrets exist (T21 runbook): docker compose -p portainer -f /etc/app/bootstrap/portainer-server.compose.yaml up -d
-  - echo "cloud-init finished for core; public key $(cat /etc/wireguard/public.key)" > /var/log/cloud-init-summary.log
-  # Diagnostics on the VNC console (tty1): reachable through the provider API when the tunnel is not
+  - echo "cloud-init finished for core" > /var/log/cloud-init-summary.log
+  # Diagnostics on the VNC console (tty1): readable through the provider console when SSH is not
   - /usr/local/sbin/boot-report.sh || true
 
-final_message: "web-app-test core host ready after $UPTIME seconds (public WireGuard key in /etc/wireguard/public.key)"
+final_message: "web-app-test core host ready after $UPTIME seconds"

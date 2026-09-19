@@ -16,7 +16,7 @@
 |---|---|---|
 | `PUBLIC_HOST` | `test-vinayak.duckdns.org` | `test-vinayak.duckdns.org` |
 | `FRONTEND_UPSTREAM` | `http://frontend:80` (whoami stub) | `http://frontend:3000` (edge network) |
-| `KEYCLOAK_UPSTREAM` | `http://keycloak:80` (whoami stub) | `http://10.10.0.2:8080` (WireGuard) |
+| `KEYCLOAK_UPSTREAM` | `http://keycloak:80` (whoami stub) | `http://10.0.0.2:8080` (core, private network) |
 | `ACME_EMAIL` / `ACME_CA_SERVER` | unreachable CA | owner email / staging then production |
 
 Secrets: `/run/secrets/crowdsec_bouncer_key` (bouncer API key, T15). Volumes: `/letsencrypt` (acme.json, mode 0600, owned by 65532), `/var/log/traefik` (shared read-only with CrowdSec). `/tmp` must be a tmpfs (rendered config).

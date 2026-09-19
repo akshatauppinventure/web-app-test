@@ -1,5 +1,5 @@
 # Two servers in us-nyc1 (ADR-0002, ADR-0003, ADR-0004): public IPv4 only (no IPv6 interface,
-# ADR-0014/0022), private SDN interface for WireGuard, cloud-init from infra/host, keys-only login,
+# ADR-0014/0022), private SDN interface for A<->B traffic, cloud-init from infra/host, keys-only login,
 # provider firewall enabled with the rules in firewall.tf.
 
 data "upcloud_storage" "template" {

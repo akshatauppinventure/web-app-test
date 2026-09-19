@@ -167,9 +167,9 @@ jobs:
         run: scripts/ci/check-published-ports.sh
       - name: Container hardening baseline (infra/stacks)
         run: python3 scripts/ci/check-hardening.py
-      - name: Host configuration (cloud-init schema, nftables, WireGuard, DOCKER-USER rules)
+      - name: Host configuration (cloud-init schema, nftables, sshd, DOCKER-USER rules)
         run: scripts/test/host-config.sh
-      - name: Host bootstrap (WireGuard bootstrap keys, rotation, interface detection, laptop config, finalize)
+      - name: Host bootstrap (render validation, interface detection, boot report)
         run: scripts/test/host-bootstrap.sh
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
@@ -198,7 +198,7 @@ jobs:
           curl -fsSL -o /tmp/sops "https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.amd64"
           echo "${SOPS_SHA256}  /tmp/sops" | sha256sum -c -
           sudo install -m 0755 /tmp/sops /usr/local/bin/sops
-          sudo apt-get update -qq && sudo apt-get install -y -qq age wireguard-tools
+          sudo apt-get update -qq && sudo apt-get install -y -qq age
       - name: Secrets tooling round trip (throwaway age key)
         run: scripts/test/secrets-roundtrip.sh
       - name: Keycloak third-party checksums

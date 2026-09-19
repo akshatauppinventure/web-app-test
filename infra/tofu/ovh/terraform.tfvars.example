@@ -8,3 +8,4 @@ cloud_init_core_path = "../../../.tofu-rendered/core.yaml"
 # edge_plan               = "d2-4"
 # core_plan               = "d2-8"
 # private_network_vlan_id = 42
+# admin_ssh_cidrs         = ["203.0.113.7/32"]   # default ["0.0.0.0/0"]; same list as ADMIN_SSH_CIDRS in the cloud-init vars

@@ -11,9 +11,9 @@ services:
       - portainer_agent_secret
       - portainer_admin_password
     ports:
-      - "10.10.0.2:9443:9443"
+      - "127.0.0.1:9443:9443"   # admin UI through ssh -L 9443:127.0.0.1:9443 (ADR-0026)
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro   # root-equivalent by design (ADR-0006); WireGuard-only UI
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # root-equivalent by design (ADR-0006); UI on loopback only
       - portainer-data:/data
     security_opt:
       - no-new-privileges:true

@@ -1,6 +1,6 @@
 # ADR-0006: Portainer CE LTS: placement and access
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (Portainer Server on 127.0.0.1:9443 (SSH port forwarding), Agent on 10.0.0.11:9001)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0005, ADR-0015, ADR-0018

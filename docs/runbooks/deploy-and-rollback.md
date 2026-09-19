@@ -19,7 +19,7 @@ Nothing merges if a digest is unsigned, a port is not allowlisted, or a service 
 git log --oneline -- infra/stacks | head          # find the deploy(<component>) commit
 git revert <commit> && git push                   # via a PR like any change; verify-deploy re-verifies the old digest
 ```
-The old digest is still signed (signatures are per digest), so the revert PR passes and Portainer redeploys it within 5 minutes. Emergency: redeploy the previous digest by hand in Portainer over WireGuard, then commit the revert so git matches.
+The old digest is still signed (signatures are per digest), so the revert PR passes and Portainer redeploys it within 5 minutes. Emergency: redeploy the previous digest by hand in Portainer (SSH port forwarding), then commit the revert so git matches.
 
 Database migrations are expand/contract (ADR-0018 §4): a backend rollback never needs a schema rollback.
 

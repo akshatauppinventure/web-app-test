@@ -1,6 +1,6 @@
 # PLAN.md — Task breakdown for the secure 2-VPS web app POC
 
-_Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`](docs/adr/README.md). Hostname: **`test-vinayak.duckdns.org`**. Repository: `akshatauppinventure/web-app-test`. Task status is tracked in `CLAUDE.md`._
+_Version 1.2, 2026-09-19 (access model replaced, ADR-0026). Derived from the accepted decisions in [`docs/adr/`](docs/adr/README.md). Hostname: **`test-vinayak.duckdns.org`**. Repository: `akshatauppinventure/web-app-test`. Task status is tracked in `CLAUDE.md`._
 
 ## How to read this plan
 
@@ -21,9 +21,9 @@ _Version 1.1, 2026-09-15. Derived from the 24 accepted decisions in [`docs/adr/`
 ### Deviations from the ADRs, for your review
 
 1. **Portainer is bootstrapped outside the GitOps stacks (T17/T21).** Portainer cannot deploy the stack that contains itself. So Portainer Server (VPS-B) and Agent (VPS-A) are started by cloud-init from a small `bootstrap` compose project, not from `infra/stacks/*`. The GitOps stacks contain only application and edge services. ADR-0006 gets a one-line amendment in T00.
-2. **Traefik upstream addresses come from environment variables** (T14), so the same dynamic config works in the local test (`keycloak` container) and in production (`10.10.0.2`). No security impact; noted for transparency.
-5. **Resolved 2026-09-17 (deposit made; kept for reference).** ~~UpCloud trial mode: WireGuard on UDP 33434 and no provider firewall layer.~~ Trial mode turned out to be unusable: the fixed firewall is *stateless* with no return-traffic rules for TCP, so servers cannot even reach the package repositories. The `WG_PORT`/`wireguard_port` and `manage_provider_firewall` knobs stay for other constrained accounts; the POC runs the ADR defaults (51820, managed rulesets). The trial account's fixed firewall (`TRIAL_FIREWALL`) cannot be modified and passes UDP only on 33434 both ways, so the POC runs WireGuard on 33434 (`WG_PORT`, `wireguard_port`; ADR-0015 default stays 51820) with `manage_provider_firewall = false`. ADR-0014 layer 1 is the fixed trial rule set (publicly accepts 22/3389/8443/8880, all dropped by nftables); the trial ends after 30 days unless a deposit is made. T24 records this deviation.
-4. **WireGuard bootstrap keys come from the laptop** (T20, ADR-0015 says keys are generated on the host). Cloud-init cannot bring `wg0` up with placeholder peers and sshd only listens on the tunnel, so the laptop generates a bootstrap key pair per host, renders it into user_data, and `scripts/host/finalize-wireguard.sh` replaces it on first contact with a key generated on the host (never leaves it). The bootstrap key is exposed only in `.tofu-rendered/` (gitignored) and the provider's user_data until rotation.
+2. **Traefik upstream addresses come from environment variables** (T14), so the same dynamic config works in the local test (`keycloak` container) and in production (`10.0.0.2`, core's private-network address). No security impact; noted for transparency.
+5. **Resolved 2026-09-17 (deposit made).** UpCloud trial mode turned out to be unusable: the fixed firewall (`TRIAL_FIREWALL`) is *stateless* with no return-traffic rules for TCP, so servers cannot even reach the package repositories. The `manage_provider_firewall` knob stays for other constrained accounts; the POC runs managed rulesets.
+4. **Access model replaced (ADR-0026, supersedes ADR-0015; 2026-09-19, owner decision).** The admin VPN and its bootstrap-key deviation are gone. Admin SSH is public on both hosts (keys only, rate-limited, optional source allowlist `ADMIN_SSH_CIDRS` / `admin_ssh_cidrs`). Edge-to-core traffic uses the provider private network (`10.0.0.11` / `10.0.0.2`) in plain HTTP. Portainer and the Keycloak admin console are reached through SSH port forwarding. Adding a VPN back is item 1 of [`docs/production-hardening.md`](docs/production-hardening.md); T24 reports the accepted risks.
 3. **PostgreSQL and CrowdSec get small custom images** (T16: `infra/postgres/Dockerfile`, `infra/crowdsec/Dockerfile`) that bake in the initdb scripts / configuration files. Portainer CE cannot bind-mount repository-relative files from a Git stack (a Business Edition feature), so every configuration file the stacks need is inside an image built and signed by CI. T12's build matrix therefore covers six components: frontend, backend, keycloak, traefik, crowdsec, postgres.
 
 ---
@@ -39,8 +39,8 @@ Detailed click-by-click steps for every item, with verification commands, are in
 | P3 | T12 | Confirm GitHub **Packages** visibility settings (private) for the repo | GHCR |
 | P4 | T13 | Create a **GitHub App** (permissions: contents RW, pull requests RW, metadata R) and install it on the repo; store App ID + private key as repo secrets `DEPLOY_APP_ID`, `DEPLOY_APP_KEY` | Deploy-PR bot |
 | P5 | T19 | Generate your **admin age key** (`age-keygen`), keep it in your password manager + an offline copy — **done 2026-09-16** | `.sops.yaml` public key |
-| P6 | T18 | **UpCloud account**, payment method **with the $10 minimum deposit (ends trial mode; the trial firewall is fixed and blocks WireGuard)**, an **API token** (server + network + storage permissions) — token done 2026-09-17, deposit pending | `~/.config/upcloud/token` → `UPCLOUD_TOKEN` for OpenTofu (never committed) |
-| P7 | T20 | Install **WireGuard** on your laptop; generate its key pair — **done 2026-09-16** | Admin peer in `peers.yaml` (public key only) |
+| P6 | T18 | **UpCloud account**, payment method **with the $10 minimum deposit (ends trial mode; the trial firewall is fixed and stateless)**, an **API token** (server + network + storage permissions) — done 2026-09-17 | `~/.config/upcloud/token` → `UPCLOUD_TOKEN` for OpenTofu (never committed) |
+| P7 | — | *(withdrawn 2026-09-19, ADR-0026: the admin VPN key pair is no longer used)* | — |
 | P8 | T22 | DuckDNS: point `test-vinayak.duckdns.org` at VPS-A's public IPv4 (after T20). Account has MFA. | DNS |
 | P9 | T22 | Google **OAuth client "poc"** with redirect URI `https://test-vinayak.duckdns.org/auth/realms/app/broker/google/endpoint` | Core secrets |
 | P10 | T23 | Create **UpCloud Managed Object Storage** (region US-1) bucket + access key scoped to it | Core secrets |
@@ -230,7 +230,7 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 
 - **ADRs:** 0013
 - **Depends on:** T14
-- **Files:** `infra/crowdsec/acquis.yaml` (Traefik access log, host `auth.log`), `infra/crowdsec/config/profiles.yaml` (4 h bans, escalation), `infra/crowdsec/config/allowlist.yaml` (`10.10.0.0/24`), `infra/crowdsec/appsec/` (virtual-patching + generic rules, `on_match: log` for phase 1), `infra/crowdsec/collections.txt`, `infra/crowdsec/scripts/bootstrap-bouncer.sh` (registers Traefik bouncer, writes key to the secrets dir), `infra/traefik/dynamic/middlewares.yml` (crowdsec plugin config: stream mode, AppSec URL, fail-open for POC), `compose.traefik-test.yaml` (add crowdsec), `scripts/test/crowdsec.sh`.
+- **Files:** `infra/crowdsec/acquis.yaml` (Traefik access log, host `auth.log`), `infra/crowdsec/config/profiles.yaml` (4 h bans, escalation), `infra/crowdsec/config/allowlist.yaml` (the private network `10.0.0.0/24` since ADR-0026), `infra/crowdsec/appsec/` (virtual-patching + generic rules, `on_match: log` for phase 1), `infra/crowdsec/collections.txt`, `infra/crowdsec/scripts/bootstrap-bouncer.sh` (registers Traefik bouncer, writes key to the secrets dir), `infra/traefik/dynamic/middlewares.yml` (crowdsec plugin config: stream mode, AppSec URL, fail-open for POC), `compose.traefik-test.yaml` (add crowdsec), `scripts/test/crowdsec.sh`.
 - **Tests:** `cscli bouncers list` shows `traefik`; `cscli collections list` shows the six collections; `cscli decisions add --ip 203.0.113.9` → request with `X-Forwarded-For` from that IP (trusted in test only) gets 403; a `/etc/passwd` traversal request produces an AppSec **log** entry but a 200/404, not a block; stop CrowdSec → traffic still flows (fail-open) and Traefik logs a warning.
 - **Done when:** `crowdsec.sh` passes; console enrollment documented in `infra/crowdsec/README.md` (enrollment key stays a secret).
 
@@ -238,16 +238,16 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 
 - **ADRs:** 0003, 0005, 0006, 0009, 0010, 0012, 0013, 0014, 0016, 0018
 - **Depends on:** T04, T05, T08, T14, T15
-- **Files:** `infra/stacks/edge/compose.yaml` (traefik `0.0.0.0:80/443`, crowdsec, frontend; networks `edge`; secrets from `/etc/app/secrets/*`; every service: non-root, `read_only`, `tmpfs`, `cap_drop ALL`, `no-new-privileges`, limits, `pids_limit`, healthcheck, `restart: unless-stopped`), `infra/stacks/core/compose.yaml` (postgres (no ports, network `db` internal), `migrate`, backend `10.10.0.2:8000`, keycloak `10.10.0.2:8080`; networks `db` internal + `core`), `infra/stacks/README.md` (env vars Portainer must set: none secret; image digests are placeholders until T13 fills them), `infra/policy/published-ports.txt` (finalize).
-- **Tests:** `docker compose config` for both; `check-published-ports.sh`; `scripts/ci/check-hardening.py` (asserts every service has `user`, `read_only`, `cap_drop`, `security_opt`, `healthcheck`, memory limit; whitelist with justification for Traefik `NET_BIND_SERVICE`); local dry run: `docker compose -f infra/stacks/core/compose.yaml up` with WireGuard IPs overridden to `127.0.0.1` via env.
+- **Files:** `infra/stacks/edge/compose.yaml` (traefik `0.0.0.0:80/443`, crowdsec, frontend; networks `edge`; secrets from `/etc/app/secrets/*`; every service: non-root, `read_only`, `tmpfs`, `cap_drop ALL`, `no-new-privileges`, limits, `pids_limit`, healthcheck, `restart: unless-stopped`), `infra/stacks/core/compose.yaml` (postgres (no ports, network `db` internal), `migrate`, backend `10.0.0.2:8000`, keycloak `10.0.0.2:8080`; networks `db` internal + `core`), `infra/stacks/README.md` (env vars Portainer must set: none secret; image digests are placeholders until T13 fills them), `infra/policy/published-ports.txt` (finalize).
+- **Tests:** `docker compose config` for both; `check-published-ports.sh`; `scripts/ci/check-hardening.py` (asserts every service has `user`, `read_only`, `cap_drop`, `security_opt`, `healthcheck`, memory limit; whitelist with justification for Traefik `NET_BIND_SERVICE`); local dry run: `docker compose -f infra/stacks/core/compose.yaml up` with the bind address overridden to `127.0.0.1` via env.
 - **Done when:** both stacks validate and start locally with overrides; hardening check passes.
 
-### T17 · Host configuration: cloud-init, nftables, WireGuard, Docker daemon, timers — **L** ∥
+### T17 · Host configuration: cloud-init, nftables, Docker daemon, timers — **L** ∥ (access model replaced 2026-09-19, ADR-0026)
 
 - **ADRs:** 0004, 0005, 0006 (bootstrap), 0014, 0015, 0021, 0024
 - **Depends on:** T00
-- **Files:** `infra/host/cloud-init/edge.yaml.tmpl`, `infra/host/cloud-init/core.yaml.tmpl` (admin user + SSH key, packages, Docker apt repo, sysctl, sshd hardening drop-in, unattended-upgrades, timezone/NTP, write files below, enable units), `infra/host/nftables/edge.nft`, `infra/host/nftables/core.nft` (input policy DROP per ADR-0014; IPv6 DROP), `infra/host/docker/daemon.json`, `infra/host/scripts/docker-user-rules.sh` (+ `infra/host/systemd/docker-user-rules.service`, ordered after docker), `infra/host/wireguard/wg0-edge.conf.tmpl`, `infra/host/wireguard/wg0-core.conf.tmpl`, `infra/host/wireguard/peers.yaml` (public keys only), `infra/host/systemd/docker.service.d/wireguard.conf` (`After=wg-quick@wg0.service`), `infra/host/bootstrap/portainer-server.compose.yaml` (B: `10.10.0.2:9443`, `AGENT_SECRET` from secret file), `infra/host/bootstrap/portainer-agent.compose.yaml` (A: `10.10.0.1:9001`), `infra/host/scripts/healthcheck.sh` + timer (containers healthy, WG handshake < 3 min, disk < 80 %, backup age < 26 h, cert expiry > 14 d; notifies via configurable webhook), `infra/host/scripts/pg-backup.sh` + `pg-backup.timer` (B only; `pg_dump` → `restic backup --stdin`; `forget/prune`; weekly `check`), `infra/host/scripts/restore-drill.sh`, `infra/host/README.md`.
-- **Tests:** `shellcheck` on all scripts; `nft -c -f` for both rulesets inside an `ubuntu:26.04` container; `cloud-init schema --config-file` on rendered templates; `wg-quick strip` parses the rendered configs; unit test for `docker-user-rules.sh` in a privileged test container (rules present after `docker` restart).
+- **Files:** `infra/host/cloud-init/edge.yaml.tmpl`, `infra/host/cloud-init/core.yaml.tmpl` (admin user + SSH key, packages, Docker apt repo, sysctl, sshd hardening drop-in, unattended-upgrades, timezone/NTP, write files below, enable units), `infra/host/nftables/edge.nft`, `infra/host/nftables/core.nft` (input policy DROP per ADR-0014; IPv6 DROP), `infra/host/docker/daemon.json`, `infra/host/scripts/docker-user-rules.sh` (+ `infra/host/systemd/docker-user-rules.service`, ordered after docker), `infra/host/systemd/docker.service.d/ordering.conf`, `infra/host/bootstrap/portainer-server.compose.yaml` (B: `127.0.0.1:9443`, `AGENT_SECRET` from secret file), `infra/host/bootstrap/portainer-agent.compose.yaml` (A: `10.0.0.11:9001`), `infra/host/scripts/healthcheck.sh` + timer (containers healthy, peer answers on the private network, disk < 80 %, backup age < 26 h, cert expiry > 14 d; notifies via configurable webhook), `infra/host/scripts/pg-backup.sh` + `pg-backup.timer` (B only; `pg_dump` → `restic backup --stdin`; `forget/prune`; weekly `check`), `infra/host/scripts/restore-drill.sh`, `infra/host/README.md`.
+- **Tests:** `shellcheck` on all scripts; `nft -c -f` for both rulesets inside an `ubuntu:26.04` container; `cloud-init schema --config-file` on rendered templates; unit test for `docker-user-rules.sh` in a privileged test container (rules present after `docker` restart).
 - **Done when:** all static checks pass in CI (`infra` job extended); rendered cloud-init for a fake host is reviewed line by line in the PR.
 
 ### T18 · OpenTofu module for UpCloud — **M** ∥
@@ -262,7 +262,7 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 
 - **ADRs:** 0016
 - **Depends on:** T00, P5
-- **Files:** `.sops.yaml` (creation rules: `infra/secrets/edge.sops.yaml`, `infra/secrets/core.sops.yaml`, tofu state; admin age recipients), `infra/secrets/edge.sops.yaml`, `infra/secrets/core.sops.yaml` (encrypted; placeholder values), `infra/secrets/SCHEMA.md` (every secret name, which host, which service consumes it, rotation period), `scripts/secrets/gen-secrets.sh` (generates strong random values for all generated secrets), `scripts/secrets/secrets-push.sh` (`sops -d` → `ssh` over WireGuard → `/etc/app/secrets/<name>` with owner/mode; never echoes), `docs/runbooks/secrets.md` (rotation, adding a secret, recovery copy).
+- **Files:** `.sops.yaml` (creation rules: `infra/secrets/edge.sops.yaml`, `infra/secrets/core.sops.yaml`, tofu state; admin age recipients), `infra/secrets/edge.sops.yaml`, `infra/secrets/core.sops.yaml` (encrypted; placeholder values), `infra/secrets/SCHEMA.md` (every secret name, which host, which service consumes it, rotation period), `scripts/secrets/gen-secrets.sh` (generates strong random values for all generated secrets), `scripts/secrets/secrets-push.sh` (`sops -d` → `ssh` → `/etc/app/secrets/<name>` with owner/mode; never echoes), `docs/runbooks/secrets.md` (rotation, adding a secret, recovery copy).
 - **Tests:** CI job: create throwaway age key, run `gen-secrets.sh` into a temp file, encrypt/decrypt round-trip, `shellcheck`; `secrets-push.sh --dry-run` prints target paths and modes only.
 - **Done when:** the two encrypted files decrypt for the owner's key; SCHEMA lists all secrets referenced by T16 stacks and T17 bootstrap (a CI check cross-references names).
 
@@ -279,21 +279,21 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 
 ## Phase 4 — Provision and deploy (cloud costs start here)
 
-### T20 · Provision both VPS, WireGuard, host hardening baseline — **L**
+### T20 · Provision both VPS, SSH access, host hardening baseline — **L**
 
-- **ADRs:** 0002, 0004, 0014, 0015
-- **Depends on:** T16, T17, T18, T19, P6, P7
-- **Files:** `infra/host/wireguard/peers.yaml` (real public keys), `infra/tofu/upcloud/terraform.tfvars` (SOPS-encrypted), `docs/runbooks/provisioning.md`, `docs/verification/host-baseline.md` (Lynis index, docker-bench summary, `nft list ruleset` excerpts, `ss -tulpn` output).
-- **Tests (live):** from the laptop over WireGuard: SSH to `10.10.0.1` and `10.10.0.2` works; SSH to public IPs is refused/timeouts; `wg show` on A shows a B handshake < 2 min; `apt update` and `docker pull hello-world` succeed (stateless-firewall return traffic OK); `nmap -Pn -p- <A public>` → only 80/443 (nothing yet listening → filtered/closed, no others); `nmap -Pn -p- <B public>` → nothing open; Lynis and docker-bench run.
+- **ADRs:** 0002, 0004, 0014, 0026
+- **Depends on:** T16, T17, T18, T19, P6
+- **Files:** `infra/tofu/upcloud/terraform.tfvars` (SOPS-encrypted), `docs/runbooks/provisioning.md`, `docs/verification/host-baseline.md` (Lynis index, docker-bench summary, `nft list ruleset` excerpts, `ss -tulpn` output).
+- **Tests (live):** SSH with the admin key to both public IPs works; password and root logins are refused; with `ADMIN_SSH_CIDRS` narrowed, SSH from another address times out; more than 10 new SSH connections per minute from one address are dropped; A and B ping each other's private address; `apt update` and `docker pull hello-world` succeed (stateless-firewall return traffic OK); `nmap -Pn -p- <A public>` → only 22 and 80/443 (80/443 closed until Traefik runs); `nmap -Pn -p- <B public>` → only 22; the Keycloak/FastAPI/Agent ports are unreachable from the public IPs; Lynis and docker-bench run.
 - **Done when:** both servers up from `tofu apply` without manual fixes; baselines recorded; any deviation fed back into T17 as a follow-up PR.
-- **Owner action:** P6, P7, run `tofu apply` (billing starts).
+- **Owner action:** P6, run `tofu apply` (billing starts).
 
 ### T21 · Portainer bootstrap and GitOps stack registration — **M**
 
 - **ADRs:** 0006, 0018, 0016
 - **Depends on:** T20, T13
-- **Files:** `docs/runbooks/portainer.md` (initial admin over WireGuard, connect Agent, GHCR read-only credential, create `edge`/`core` Git stacks with 5-min polling + re-pull), `infra/secrets/*.sops.yaml` (real values incl. `AGENT_SECRET`, GHCR token stored **in Portainer only**, not on disk).
-- **Tests (live):** `https://10.10.0.2:9443` reachable over WireGuard only; `https://<B public>:9443` unreachable; Agent shows "up" in Portainer; `secrets-push.sh` populated `/etc/app/secrets` with correct owners/modes on both hosts (audit script `scripts/secrets/audit-hosts.sh`); Portainer pulls the repo and shows both stacks (not yet healthy until T22 DNS/TLS).
+- **Files:** `docs/runbooks/portainer.md` (initial admin through `ssh -L 9443:127.0.0.1:9443`, connect Agent at `10.0.0.11:9001`, GHCR read-only credential, create `edge`/`core` Git stacks with 5-min polling + re-pull), `infra/secrets/*.sops.yaml` (real values incl. `AGENT_SECRET`, GHCR token stored **in Portainer only**, not on disk).
+- **Tests (live):** Portainer reachable only through SSH port forwarding; `https://<B public>:9443` and `<A public>:9001` unreachable; Agent shows "up" in Portainer; `secrets-push.sh` populated `/etc/app/secrets` with correct owners/modes on both hosts (audit script `scripts/secrets/audit-hosts.sh`); Portainer pulls the repo and shows both stacks (not yet healthy until T22 DNS/TLS).
 - **Done when:** both stacks deployed by Portainer from `main`; `docker ps` on A shows only edge services + agent; on B only core services + Portainer.
 
 ### T22 · DNS, TLS, production Google client, first end-to-end deployment — **M**
@@ -301,7 +301,7 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 - **ADRs:** 0022, 0012, 0010, 0011, 0018
 - **Depends on:** T21, P8, P9
 - **Files:** `infra/secrets/core.sops.yaml` (Google poc client), `infra/traefik/traefik.yml` (ACME production after one staging success; via env `ACME_CA_SERVER`), `docs/runbooks/first-deploy.md`, `docs/runbooks/keycloak-realm-export.md`.
-- **Tests (live):** `dig +short test-vinayak.duckdns.org` = A's IP; Let's Encrypt staging cert issued, then production cert; `https://test-vinayak.duckdns.org/` loads; **Sign in with Google → `/hello` shows the visit message**; second login increments count; sign-out ends the session; `https://test-vinayak.duckdns.org/auth/admin` → 404; admin console works at `http://10.10.0.2:8080/auth/admin` over WireGuard with MFA enrolled for the admin; a code change merged to `main` reaches the site through the deploy PR + Portainer poll within ~10 min.
+- **Tests (live):** `dig +short test-vinayak.duckdns.org` = A's IP; Let's Encrypt staging cert issued, then production cert; `https://test-vinayak.duckdns.org/` loads; **Sign in with Google → `/hello` shows the visit message**; second login increments count; sign-out ends the session; `https://test-vinayak.duckdns.org/auth/admin` → 404; admin console works at `http://localhost:8080/auth/admin` through `ssh -L 8080:10.0.0.2:8080` with MFA enrolled for the admin; a code change merged to `main` reaches the site through the deploy PR + Portainer poll within ~10 min.
 - **Done when:** all live tests pass; Keycloak master realm bootstrap admin deleted and replaced by a named MFA admin; realm exported back to git without secrets.
 - **Owner action:** P8, P9, enroll admin MFA.
 
@@ -323,7 +323,7 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 - **ADRs:** all; verification plan from the research (plan rev 2 §13)
 - **Depends on:** T23, P11 (optional)
 - **Files:** `scripts/verify/external-scan.sh` (nmap TCP+UDP, from outside), `scripts/verify/headers.sh`, `scripts/verify/blast-radius.sh` (run on A: grep secrets dir, env, volumes for DB/Keycloak/restic secrets → must find none; A can reach B only on 8080/8000), `scripts/verify/port-bypass-test.sh` (temporary `-p 0.0.0.0:8081:80` container must be unreachable externally), `scripts/verify/rls-cross-user.sh`, `docs/verification/poc-security-report.md`.
-- **Tests (live):** nmap A → 80/443 only, UDP 51820 `open|filtered`; nmap B → nothing; SSL Labs A+; securityheaders.com A; OWASP ZAP baseline (Docker) → no High; brute-force 20 wrong passwords → Keycloak temporary lockout + CrowdSec decision within 60 s; user X cannot read user Y's row via API (403/empty) and via SQL as `app_rw`; blast-radius script clean; port-bypass test blocked; CrowdSec fail-open confirmed and documented; Lynis/docker-bench deltas vs T20.
+- **Tests (live):** nmap A → 22 and 80/443 only; nmap B → 22 only; SSH key-only and rate limit confirmed; SSL Labs A+; securityheaders.com A; OWASP ZAP baseline (Docker) → no High; brute-force 20 wrong passwords → Keycloak temporary lockout + CrowdSec decision within 60 s; user X cannot read user Y's row via API (403/empty) and via SQL as `app_rw`; blast-radius script clean; port-bypass test blocked; CrowdSec fail-open confirmed and documented; Lynis/docker-bench deltas vs T20.
 - **Done when:** report committed with all results, evidence links, and a list of accepted risks (from ADR "Negative / risks" sections) confirmed still accurate.
 
 ### T25 · AppSec blocking mode, runbooks, close-out — **S**
@@ -332,7 +332,7 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 - **Depends on:** T24 (and ≥2 weeks of AppSec logs)
 - **Files:** `infra/crowdsec/appsec/*` (`on_match: block`; exclusions documented), `docs/runbooks/{rollback.md, secrets-rotation.md, keycloak-upgrade.md, break-glass.md, upgrade-portainer.md}`, `docs/adr/README.md` (follow-ups → GitHub issues), `PLAN.md` (mark complete; list production-readiness backlog).
 - **Tests (live):** after switching to block: Google login, sign-out, `/hello` and admin console still work; a traversal request now gets 403; runbooks each have a "last tested" date.
-- **Done when:** AppSec in blocking mode with zero false positives over 48 h; all runbooks tested once; production backlog issues opened (3-tier topology, PITR backups, Cloudflare, real domain + Apple login, observability stack, outbound filtering, DHI images, Vault/OpenBao evaluation).
+- **Done when:** AppSec in blocking mode with zero false positives over 48 h; all runbooks tested once; production backlog issues opened from [`docs/production-hardening.md`](docs/production-hardening.md) (a VPN for admin and site-to-site traffic, encrypted edge-to-core traffic, SSH lockdown, 3-tier topology, PITR backups, Cloudflare, real domain + Apple login, observability stack, outbound filtering, DHI images, Vault/OpenBao evaluation).
 
 ---
 
@@ -351,4 +351,4 @@ Phases 1 (app), 2 (CI) and 3 (infra) are largely independent of each other after
 **Suggested order for a single implementer:** T00 → T01 → T02 → T03 → T04 → T06 → T05 → T07 → T08 → T09 → T10 → T11 → T14 → T15 → T16 → T12 → T13 → T17 → T18 → T19 → T20 → T21 → T22 → T23 → T24 → T25.
 (T12 after T14 so the Traefik image is in the first publish matrix; T05 before T07 so the realm exists for the frontend auth work.)
 
-**What is explicitly out of scope for this plan:** Apple login enablement, custom domain, Cloudflare, 3-tier topology, PITR backups, full observability stack, Playwright end-to-end tests, custom Keycloak theme, SMTP/email verification. Each is listed as a follow-up in the relevant ADR and becomes a GitHub issue in T25.
+**What is explicitly out of scope for this plan:** Apple login enablement, custom domain, Cloudflare, 3-tier topology, PITR backups, full observability stack, Playwright end-to-end tests, custom Keycloak theme, SMTP/email verification. Each is listed as a follow-up in the relevant ADR and in [`docs/production-hardening.md`](docs/production-hardening.md), and becomes a GitHub issue in T25.

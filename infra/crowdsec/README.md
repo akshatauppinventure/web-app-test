@@ -12,7 +12,7 @@ listener for the Traefik bouncer plugin, and serves decisions to the plugin over
 | `acquis.d/appsec.yaml` | AppSec listener `0.0.0.0:7422` (edge network only) using `poc/appsec-detect` |
 | `appsec/poc-appsec-detect.yaml` | **Phase 1:** all vpatch + generic rules in-band with `default_remediation: allow` → matches are counted/logged, nothing is blocked. **Phase 2 (T25):** `default_remediation: ban` |
 | `config/profiles.yaml` | 4 h bans, doubling per repeat offence |
-| `parsers/allowlist.yaml` | Parser whitelist for `10.10.0.0/24` (WireGuard admin peers + core host) so no decision can ever target them |
+| `parsers/allowlist.yaml` | Parser whitelist for the private network `10.0.0.0/24` (edge and core hosts, ADR-0026) so no decision can ever target them |
 | `scripts/bootstrap-bouncer.sh` | Generates the shared bouncer API key secret file |
 
 ## How the bouncer is wired

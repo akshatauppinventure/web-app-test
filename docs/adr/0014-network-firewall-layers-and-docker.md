@@ -1,6 +1,6 @@
 # ADR-0014: Network firewall layers and Docker port exposure
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (SSH on the public interface, site-to-site rules use private-network addresses)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0002, ADR-0003, ADR-0005, ADR-0006, ADR-0012, ADR-0015

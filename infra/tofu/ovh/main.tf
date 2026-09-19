@@ -1,5 +1,5 @@
 # Two instances in the OVHcloud US region (ADR-0002, ADR-0003, ADR-0004, ADR-0025): public interface on
-# Ext-Net, private vRack interface for WireGuard, cloud-init from infra/host, keys-only login, one
+# Ext-Net, private vRack interface for A<->B traffic, cloud-init from infra/host, keys-only login, one
 # security group per role (firewall.tf). Ext-Net also assigns IPv6; the security groups carry no IPv6
 # rules, so IPv6 is dropped at the provider layer as on UpCloud (ADR-0014/0022).
 
@@ -56,7 +56,7 @@ resource "openstack_compute_instance_v2" "this" {
     uuid = data.openstack_networking_network_v2.public.id
   }
 
-  # Private vRack network: WireGuard transport between A and B (fixed addresses as on UpCloud).
+  # Private vRack network: A<->B traffic (fixed addresses as on UpCloud).
   network {
     uuid        = openstack_networking_network_v2.private.id
     fixed_ip_v4 = each.value.private_ip

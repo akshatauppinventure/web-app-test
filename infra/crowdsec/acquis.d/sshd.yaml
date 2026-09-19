@@ -1,4 +1,4 @@
-# Host sshd log (only reachable over WireGuard, ADR-0015). Mounted read-only by the edge stack (T16);
+# Host sshd log (public, key-only SSH since ADR-0026; decisions apply at the HTTP layer only). Mounted read-only by the edge stack (T16);
 # absent in the local test, which CrowdSec tolerates with a warning.
 source: file
 filenames:

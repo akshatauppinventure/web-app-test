@@ -16,12 +16,9 @@ locals {
   edge_service_rules = [
     { comment = "HTTP to Traefik (ACME + redirect)", protocol = "tcp", destination_port_start = "80", destination_port_end = "80" },
     { comment = "HTTPS to Traefik", protocol = "tcp", destination_port_start = "443", destination_port_end = "443" },
-    { comment = "WireGuard", protocol = "udp", destination_port_start = tostring(var.wireguard_port), destination_port_end = tostring(var.wireguard_port) },
   ]
 
-  core_service_rules = [
-    { comment = "WireGuard", protocol = "udp", destination_port_start = tostring(var.wireguard_port), destination_port_end = tostring(var.wireguard_port) },
-  ]
+  core_service_rules = []
 
   rulesets = {
     edge = local.edge_service_rules
@@ -65,6 +62,22 @@ resource "upcloud_firewall_rules" "this" {
     }
   }
 
+  # 3b. Admin SSH (keys only) from the allowed sources, both servers (ADR-0026)
+  dynamic "firewall_rule" {
+    for_each = var.admin_ssh_cidrs
+    content {
+      action                 = "accept"
+      direction              = "in"
+      family                 = "IPv4"
+      protocol               = "tcp"
+      source_address_start   = cidrhost(firewall_rule.value, 0)
+      source_address_end     = cidrhost(firewall_rule.value, -1)
+      destination_port_start = "22"
+      destination_port_end   = "22"
+      comment                = "SSH from ${firewall_rule.value}"
+    }
+  }
+
   # 4. Return traffic for outbound connections (stateless firewall)
   dynamic "firewall_rule" {
     for_each = local.return_rules
@@ -79,7 +92,7 @@ resource "upcloud_firewall_rules" "this" {
     }
   }
 
-  # 5. Private SDN network (WireGuard transport between A and B)
+  # 5. Private SDN network (Keycloak/FastAPI and Portainer Agent between A and B; DOCKER-USER narrows it)
   firewall_rule {
     action               = "accept"
     direction            = "in"

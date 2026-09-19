@@ -11,7 +11,6 @@ status=0
 while read -r n; do [[ -z "$n" ]] && continue; grep -qx "$n" <<<"$schema" || { echo "FAIL: '$n' is referenced but missing from SCHEMA.md"; status=1; }; done <<<"$referenced"
 while read -r n; do
   [[ -z "$n" ]] && continue
-  case "$n" in wireguard_psk_*) continue;; esac   # consumed by the WireGuard PostUp hook, not a compose secret
   grep -qx "$n" <<<"$referenced" || { echo "FAIL: '$n' is in SCHEMA.md but nothing references it"; status=1; }
 done <<<"$schema"
 # every generated file must cover its host's schema entries

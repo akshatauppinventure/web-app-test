@@ -28,7 +28,7 @@ for p in /auth /auth/ /auth/admin /auth/admin/ /auth/admin/master/console /auth/
   [[ "$s" == "404" ]] || fail "$p should be 404, got $s"
   c "$BASE$p" | grep -q "keycloak-stub" && fail "$p reached the keycloak upstream" || true
 done
-[[ "$(code "$BASE/auth/realms/master/protocol/openid-connect/auth")" == "200" ]] || fail "master realm public path unexpectedly blocked (admin login must still work over WireGuard only)"
+[[ "$(code "$BASE/auth/realms/master/protocol/openid-connect/auth")" == "200" ]] || fail "master realm public path unexpectedly blocked (admin login must still work through the SSH-forwarded admin console)"
 pass "Keycloak admin/console/metrics/health paths -> 404, never proxied"
 
 [[ "$(code -H "Host: other.example" "$BASE/")" == "404" ]] || fail "unknown Host header should be 404"

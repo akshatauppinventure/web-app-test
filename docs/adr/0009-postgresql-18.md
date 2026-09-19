@@ -1,6 +1,6 @@
 # ADR-0009: Database: PostgreSQL 18
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); access model superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0005, ADR-0010, ADR-0011, ADR-0021

@@ -26,7 +26,7 @@ services:
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:-test-vinayak.duckdns.org}
       FRONTEND_UPSTREAM: http://frontend:3000
-      KEYCLOAK_UPSTREAM: http://10.10.0.2:8080
+      KEYCLOAK_UPSTREAM: http://10.0.0.2:8080   # core private-network address (ADR-0026)
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in the Portainer stack environment}
       ACME_CA_SERVER: ${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
       LOG_LEVEL: INFO
@@ -94,8 +94,8 @@ services:
       AUTH_KEYCLOAK_ID: web-bff
       AUTH_KEYCLOAK_SECRET_FILE: /run/secrets/web_bff_client_secret
       AUTH_KEYCLOAK_ISSUER: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth/realms/app
-      KEYCLOAK_INTERNAL_ISSUER: http://10.10.0.2:8080/auth/realms/app
-      API_BASE_URL: http://10.10.0.2:8000
+      KEYCLOAK_INTERNAL_ISSUER: http://10.0.0.2:8080/auth/realms/app
+      API_BASE_URL: http://10.0.0.2:8000
       NEXT_PUBLIC_APPLE_LOGIN: "false"
     secrets:
       - auth_secret

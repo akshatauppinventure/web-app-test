@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Decrypts infra/secrets/<host>.sops.yaml locally and writes each value to the host over SSH
-# (WireGuard) as /etc/app/secrets/<name> (0400, owned by the consuming UID) or, for WireGuard
-# pre-shared keys, /etc/wireguard/psk-<peer> (0600 root). Values never appear in argv or logs.
-# Usage: secrets-push.sh <edge|core> [--dry-run] [--ssh-target user@10.10.0.x]
+# Decrypts infra/secrets/<host>.sops.yaml locally and writes each value to the host over SSH as
+# /etc/app/secrets/<name> (0400, owned by the consuming UID). Values never appear in argv or logs.
+# The default SSH targets are the host aliases webapptest-edge / webapptest-core from ~/.ssh/config
+# (docs/runbooks/provisioning.md). Usage: secrets-push.sh <edge|core> [--dry-run] [--ssh-target user@host]
 set -euo pipefail
 HOST="${1:?edge|core}"; shift
 DRY=0; TARGET=""
@@ -10,12 +10,11 @@ while (( $# )); do case "$1" in --dry-run) DRY=1;; --ssh-target) TARGET="$2"; sh
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 FILE="${SECRETS_FILE:-$ROOT/infra/secrets/$HOST.sops.yaml}"
 SOPS=(sops); [[ -n "${SOPS_CONFIG:-}" ]] && SOPS=(sops --config "$SOPS_CONFIG")
-case "$HOST" in edge) TARGET="${TARGET:-admin@10.10.0.1}";; core) TARGET="${TARGET:-admin@10.10.0.2}";; *) echo "unknown host" >&2; exit 2;; esac
+case "$HOST" in edge) TARGET="${TARGET:-webapptest-edge}";; core) TARGET="${TARGET:-webapptest-core}";; *) echo "unknown host" >&2; exit 2;; esac
 
 # name -> "path owner mode" (owner = UID of the consuming container; see infra/secrets/SCHEMA.md)
 dest() {
   case "$1" in
-    wireguard_psk_*) echo "/etc/wireguard/psk-${1#wireguard_psk_} 0 0600" ;;
     crowdsec_bouncer_key) echo "/etc/app/secrets/$1 0 0444" ;;        # read by traefik (65532) and crowdsec (0)
     crowdsec_enroll_key|portainer_agent_secret|portainer_admin_password) echo "/etc/app/secrets/$1 0 0400" ;;
     auth_secret) echo "/etc/app/secrets/$1 1000 0400" ;;
@@ -46,5 +45,5 @@ while read -r name; do
     | ssh -o BatchMode=yes "$TARGET" "sudo install -d -m 0700 -o root -g root \$(dirname '$path') && umask 077 && sudo tee '$path' >/dev/null && sudo chown '$owner':0 '$path' && sudo chmod '$mode' '$path'"
   echo "  pushed $name -> $path"
 done <<<"$names"
-(( DRY )) || ssh -o BatchMode=yes "$TARGET" "sudo ls -l /etc/app/secrets /etc/wireguard/psk-* 2>/dev/null | sed 's/^/    /'"
+(( DRY )) || ssh -o BatchMode=yes "$TARGET" "sudo ls -l /etc/app/secrets 2>/dev/null | sed 's/^/    /'"
 exit $status

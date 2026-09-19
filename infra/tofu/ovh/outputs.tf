@@ -1,5 +1,5 @@
 output "public_ipv4" {
-  description = "Public IPv4 per server (edge -> DuckDNS record P8; both -> admin WireGuard endpoints)"
+  description = "Public IPv4 per server (edge -> DuckDNS record P8; both -> admin SSH, ~/.ssh/config)"
   value = {
     for k, s in openstack_compute_instance_v2.this : k => one([
       for n in s.network : n.fixed_ip_v4 if n.uuid == data.openstack_networking_network_v2.public.id
@@ -8,7 +8,7 @@ output "public_ipv4" {
 }
 
 output "private_ipv4" {
-  description = "vRack private IPv4 per server (A<->B WireGuard endpoints, infra/host/wireguard/peers.yaml)"
+  description = "vRack private IPv4 per server (EDGE_PRIVATE_IP/CORE_PRIVATE_IP in the cloud-init vars)"
   value = {
     for k, s in openstack_compute_instance_v2.this : k => one([
       for n in s.network : n.fixed_ip_v4 if n.uuid == openstack_networking_network_v2.private.id

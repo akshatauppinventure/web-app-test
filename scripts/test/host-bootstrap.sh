@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the T20 host bootstrap pieces (PLAN T20, T17 follow-up): render-time WireGuard bootstrap
-# keys, key rotation on the host, public-interface detection, laptop config rendering and the
-# finalize script (dry run with a stub ssh). Runs in ubuntu:26.04 containers like host-config.sh.
+# Tests for the T20 host bootstrap pieces (PLAN T20, ADR-0026): render-time validation of the host
+# variables, the rendered cloud-init (no tunnel config, key-only public SSH, private-network peer),
+# public-interface detection and the boot report. Runs in ubuntu:26.04 containers like host-config.sh.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT"
 IMG="ubuntu:26.04@sha256:513c074113a871b51a8d16ab445c88779d6452d937a164fb5cc479f32668a41d"
@@ -12,135 +12,79 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "ok: $*"; }
 R=infra/host/scripts/render-cloud-init.sh
 
-shellcheck scripts/host/*.sh infra/host/scripts/*.sh && pass "shellcheck scripts/host + infra/host/scripts"
+shellcheck infra/host/scripts/*.sh && pass "shellcheck infra/host/scripts"
 
-# 1. Render refuses placeholder or malformed WireGuard keys (they would brick the host at first boot).
-sed 's/^CORE_PUBLIC_KEY=.*/CORE_PUBLIC_KEY=REPLACE_AFTER_PROVISIONING/' scripts/test/host-vars.example > "$OUT/bad1.vars"
-! $R edge "$OUT/bad1.vars" "$OUT/bad1.yaml" 2>"$OUT/err1" || fail "render accepted a placeholder peer key"
-grep -q 'CORE_PUBLIC_KEY' "$OUT/err1" || fail "render error does not name the bad variable: $(cat "$OUT/err1")"
-grep -v '^WG_PRIVATE_KEY=' scripts/test/host-vars.example > "$OUT/bad2.vars"
-! $R edge "$OUT/bad2.vars" "$OUT/bad2.yaml" 2>/dev/null || fail "render accepted a vars file without WG_PRIVATE_KEY"
-pass "render rejects placeholder peer keys and a missing bootstrap private key"
+# 1. Render refuses malformed private addresses and SSH source CIDRs (a bad value would lock the admin out).
+bad() { # <description> <sed expression or extra line>
+  sed "$2" scripts/test/host-vars.example > "$OUT/bad.vars"
+  ! $R edge "$OUT/bad.vars" "$OUT/bad.yaml" 2>"$OUT/err" || fail "render accepted $1"
+  grep -q "$3" "$OUT/err" || fail "render error for $1 does not name $3: $(cat "$OUT/err")"
+}
+bad "a non-IPv4 core address" 's/^CORE_PRIVATE_IP=.*/CORE_PRIVATE_IP=10.0.0/' CORE_PRIVATE_IP
+bad "equal private addresses" 's/^EDGE_PRIVATE_IP=.*/EDGE_PRIVATE_IP=10.0.0.2/' EDGE_PRIVATE_IP
+bad "a CIDR without a prefix" 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=198.51.100.7#' ADMIN_SSH_CIDRS
+bad "a prefix above /32" 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=198.51.100.0/33#' ADMIN_SSH_CIDRS
+bad "an IPv6 CIDR" 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=2001:db8::/32#' ADMIN_SSH_CIDRS
+pass "render rejects malformed private addresses and SSH source CIDRs"
 
-# 2. Rendered cloud-init carries the bootstrap private key and no placeholder at all.
+# 2. Rendered cloud-init: no pre-ADR-0026 tunnel config, no placeholder, peer address in host.env, boot report wiring.
 for role in edge core; do
   $R "$role" scripts/test/host-vars.example "$OUT/$role.yaml"
-  grep -q '__WG_PRIVATE_KEY__\|REPLACE_AFTER_PROVISIONING\|REPLACE_WITH' "$OUT/$role.yaml" && fail "$role: placeholder left in rendered cloud-init"
-  grep -q "PrivateKey = $(grep '^WG_PRIVATE_KEY=' scripts/test/host-vars.example | cut -d= -f2-)" "$OUT/$role.yaml" || fail "$role: bootstrap private key not rendered"
-  grep -q 'wg-rotate-key.sh' "$OUT/$role.yaml" || fail "$role: wg-rotate-key.sh not embedded"
-  grep -q 'resolve-public-if.sh' "$OUT/$role.yaml" || fail "$role: resolve-public-if.sh not embedded"
-  awk '/^runcmd:/{r=1; next} /^[a-z_]+:/{r=0} r' "$OUT/$role.yaml" | grep -v '^\s*#' | grep -vE '^\s*$' | tail -1 | grep -q 'boot-report.sh' || fail "$role: boot-report.sh must be the last runcmd entry"
-  awk '/^bootcmd:/{b=1; next} /^[a-z_]+:/{b=0} b' "$OUT/$role.yaml" | grep -q 'boot-report.sh --loop' || fail "$role: bootcmd must start the boot-report loop"
-  awk '/^runcmd:/{r=1} r' "$OUT/$role.yaml" | grep -q 'wg genkey' && fail "$role: runcmd still generates a key at first boot (would not match the rendered peers)"
+  y="$(cat "$OUT/$role.yaml")"
+  ! grep -qiE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" || fail "$role: pre-ADR-0026 tunnel remnant in rendered cloud-init: $(grep -niE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" | head -3)"
+  ! grep -q '__[A-Z_]*__' <<<"$y" || fail "$role: placeholder left in rendered cloud-init"
+  peer=$([[ $role == edge ]] && echo 10.0.0.2 || echo 10.0.0.11)
+  grep -q "^ *PEER_IP=$peer$" <<<"$y" || fail "$role: host.env PEER_IP is not the peer private address $peer"
+  grep -q 'define ADMIN_SSH_SOURCES = { 0.0.0.0/0 }' <<<"$y" || fail "$role: default SSH sources not rendered"
+  grep -q 'resolve-public-if.sh' <<<"$y" || fail "$role: resolve-public-if.sh not embedded"
+  last_runcmd="$(awk '/^runcmd:/{r=1; next} /^[a-z_]+:/{r=0} r && !/^[[:space:]]*(#|$)/{l=$0} END{print l}' <<<"$y")"
+  [[ "$last_runcmd" == *boot-report.sh* ]] || fail "$role: boot-report.sh must be the last runcmd entry (got: $last_runcmd)"
+  bootcmd="$(awk '/^bootcmd:/{b=1; next} /^[a-z_]+:/{b=0} b' <<<"$y")"
+  [[ "$bootcmd" == *"boot-report.sh --loop"* ]] || fail "$role: bootcmd must start the boot-report loop"
 done
-pass "rendered cloud-init uses the bootstrap keys and embeds the rotate/resolve scripts"
+grep -q '"127.0.0.1:9443:9443"' "$OUT/core.yaml" || fail "core: Portainer Server must publish on 127.0.0.1 only"
+grep -q '"10.0.0.11:9001:9001"' "$OUT/edge.yaml" || fail "edge: Portainer Agent must publish on the edge private address"
+pass "rendered cloud-init has no tunnel config, sets PEER_IP, binds Portainer to loopback/private addresses"
 
-# 3. PUBLIC_IF=auto renders and is resolved on the host before nftables starts.
+# 3. ADMIN_SSH_CIDRS: a comma-separated list renders into the nftables set; private addresses override.
+sed -e 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=198.51.100.0/24,203.0.113.7/32#' -e 's/^CORE_PRIVATE_IP=.*/CORE_PRIVATE_IP=10.0.0.3/' scripts/test/host-vars.example > "$OUT/cidr.vars"
+$R edge "$OUT/cidr.vars" "$OUT/edge-cidr.yaml"
+grep -q 'define ADMIN_SSH_SOURCES = { 198.51.100.0/24, 203.0.113.7/32 }' "$OUT/edge-cidr.yaml" || fail "ADMIN_SSH_CIDRS list not rendered: $(grep -n ADMIN_SSH_SOURCES "$OUT/edge-cidr.yaml")"
+grep -q '^ *PEER_IP=10.0.0.3$' "$OUT/edge-cidr.yaml" || fail "CORE_PRIVATE_IP override not applied"
+pass "ADMIN_SSH_CIDRS and private-address overrides render"
+
+# 4. PUBLIC_IF=auto renders and is resolved on the host before nftables starts.
 sed 's/^PUBLIC_IF=.*/PUBLIC_IF=auto/' scripts/test/host-vars.example > "$OUT/auto.vars"
 $R edge "$OUT/auto.vars" "$OUT/edge-auto.yaml"
 grep -q 'define PUBLIC_IF = "auto"' "$OUT/edge-auto.yaml" || fail "PUBLIC_IF=auto not rendered into nftables.conf"
 awk '/^runcmd:/{r=1} r && /resolve-public-if/{print NR; exit}' "$OUT/edge-auto.yaml" > "$OUT/l1"
 awk '/^runcmd:/{r=1} r && /enable --now nftables/{print NR; exit}' "$OUT/edge-auto.yaml" > "$OUT/l2"
 [ -s "$OUT/l1" ] && [ "$(cat "$OUT/l1")" -lt "$(cat "$OUT/l2")" ] || fail "resolve-public-if.sh must run in runcmd before nftables is enabled"
-sed 's/__PUBLIC_IF__/auto/' infra/host/nftables/edge.nft > "$OUT/edge-auto.nft"
+sed -e 's/__PUBLIC_IF__/auto/' -e 's#__ADMIN_SSH_CIDRS__#0.0.0.0/0#' infra/host/nftables/edge.nft > "$OUT/edge-auto.nft"
 printf 'HOST_ROLE=edge\nPUBLIC_IF=auto\n' > "$OUT/host.env"
 
-# 3b. WG_PORT: default 51820 everywhere; an override (trial-mode UpCloud: 33434) reaches wg0.conf, nftables and the defaults.
-grep -q '^ *ListenPort = 51820$' "$OUT/edge.yaml" || fail "default ListenPort 51820 not rendered"
-{ grep -q 'define WG_PORT = 51820$' "$OUT/edge.yaml" && grep -q 'udp dport .WG_PORT accept' "$OUT/edge.yaml"; } || fail "default nftables WireGuard port not rendered"
-sed -e 's/^EDGE_ENDPOINT=.*/EDGE_ENDPOINT=10.0.0.11:33434/' scripts/test/host-vars.example > "$OUT/port.vars"; echo "WG_PORT=33434" >> "$OUT/port.vars"
-$R core "$OUT/port.vars" "$OUT/core-port.yaml"
-{ grep -q '^ *ListenPort = 33434$' "$OUT/core-port.yaml" && grep -q 'define WG_PORT = 33434$' "$OUT/core-port.yaml" \
-  && grep -q '^ *Endpoint = 10.0.0.11:33434$' "$OUT/core-port.yaml" && ! grep -q '51820' "$OUT/core-port.yaml"; } || fail "WG_PORT=33434 not applied everywhere: $(grep -n '51820\|ListenPort\|dport' "$OUT/core-port.yaml" | head)"
-echo "WG_PORT=99999" >> "$OUT/port.vars"; ! $R core "$OUT/port.vars" "$OUT/bad.yaml" 2>/dev/null || fail "render accepted an invalid WG_PORT"
-pass "WG_PORT renders into ListenPort, nftables and endpoints (default 51820, override 33434, invalid rejected)"
-
-# 4. Laptop config renders from peers.yaml + outputs (fake keys), 5. rotate script, 6. resolver — all in containers.
-LAPTOP_KEY="$OUT/laptop.key"; printf 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n' > "$LAPTOP_KEY"
-python3 - "$OUT/peers.yaml" <<'PY'
-import sys
-open(sys.argv[1], "w").write("""network: 10.10.0.0/24
-port: 33434
-servers:
-  edge: {wg_ip: 10.10.0.1, public_key: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", endpoint_for_admins: "198.51.100.10:33434"}
-  core: {wg_ip: 10.10.0.2, public_key: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=", endpoint_for_admins: "198.51.100.20:33434"}
-admins:
-  - {name: owner-laptop, wg_ip: 10.10.0.10, public_key: "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD="}
-""")
-PY
-scripts/host/render-laptop-wg.sh "$OUT/peers.yaml" "$LAPTOP_KEY" "$OUT/webapptest.conf" >/dev/null
-{ grep -q '^Endpoint = 198.51.100.10:33434' "$OUT/webapptest.conf" && grep -q '^ListenPort = 33434$' "$OUT/webapptest.conf" && grep -q '^AllowedIPs = 10.10.0.2/32' "$OUT/webapptest.conf" \
-  && grep -q '^Address = 10.10.0.10/32' "$OUT/webapptest.conf" && ! grep -q 'PresharedKey' "$OUT/webapptest.conf"; } || fail "laptop config wrong: $(cat "$OUT/webapptest.conf")"
-printf 'EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE=\n' > "$OUT/psk-edge"; printf 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF=\n' > "$OUT/psk-core"
-scripts/host/render-laptop-wg.sh "$OUT/peers.yaml" "$LAPTOP_KEY" "$OUT/webapptest-psk.conf" --psk-edge "$OUT/psk-edge" --psk-core "$OUT/psk-core" >/dev/null
-[ "$(grep -c '^PresharedKey = ' "$OUT/webapptest-psk.conf")" = 2 ] || fail "laptop config with PSKs wrong"
-pass "laptop WireGuard config renders with and without pre-shared keys"
-
+# 5. Boot report and resolver, in a container.
 docker run --rm -v "$OUT:/t" -v "$ROOT/infra/host/scripts:/s:ro" -e "HOST_UID=$(id -u)" "$IMG" bash -c '
 set -euo pipefail
 trap "chown -R \"$HOST_UID\" /t" EXIT
-apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard-tools iproute2 nftables >/dev/null 2>&1
-wg-quick strip /t/webapptest.conf >/dev/null && wg-quick strip /t/webapptest-psk.conf >/dev/null && echo "ok: wg-quick strip laptop configs"
-# rotate: conf gets a new key, public key printed matches, bootstrap template removed, no wg0 needed
-mkdir -p /t/wg && k=$(wg genkey) && printf "[Interface]\nAddress = 10.10.0.1/24\nPrivateKey = %s\n[Peer]\nPublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=\n" "$k" > /t/wg/wg0.conf && cp /t/wg/wg0.conf /t/wg/wg0.conf.tmpl
-pub=$(WG_DIR=/t/wg /s/wg-rotate-key.sh wg0)
-new=$(sed -n "s/^PrivateKey = //p" /t/wg/wg0.conf); [ "$new" != "$k" ] || { echo "private key not rotated"; exit 1; }
-[ "$(wg pubkey <<<"$new")" = "$pub" ] || { echo "printed public key does not match the new private key"; exit 1; }
-[ "$(cat /t/wg/public.key)" = "$pub" ] && [ ! -e /t/wg/wg0.conf.tmpl ] && grep -q "^PublicKey = BBBB" /t/wg/wg0.conf || { echo "rotate side effects wrong"; exit 1; }
-[ "$(stat -c %a /t/wg/private.key)" = 600 ] || { echo "private.key mode $(stat -c %a /t/wg/private.key)"; exit 1; }
-echo "ok: wg-rotate-key.sh rotates in place and prints the new public key"
-# boot report: runs without wg/nft/cloud-init present, prints every section, never fails
+apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iproute2 nftables >/dev/null 2>&1
+# boot report: runs without nft/cloud-init/sshd present, prints every section, never fails
 BOOT_REPORT_OUT=/t/boot-report.txt BOOT_REPORT_LOG=/t/boot-report.log /s/boot-report.sh
 grep -q "busy:" /t/boot-report.txt && grep -q "cloud-init-output tail:" /t/boot-report.txt || { echo "report misses the activity sections"; exit 1; }
+grep -q "sshd:" /t/boot-report.txt && grep -q "peer (private network):" /t/boot-report.txt || { echo "report misses the sshd/peer sections"; exit 1; }
+! grep -qi "wg-quick\|wireguard" /t/boot-report.txt || { echo "boot report still mentions the removed tunnel"; exit 1; }
 # --loop exits immediately when cloud-init reports done (stub), after one report
 mkdir -p /t/bin && printf "#!/bin/sh\necho status: done\n" > /t/bin/cloud-init && chmod +x /t/bin/cloud-init
 PATH=/t/bin:$PATH BOOT_REPORT_OUT=/t/loop.txt BOOT_REPORT_LOG=/t/loop.log timeout 20 /s/boot-report.sh --loop || { echo "loop did not exit on done"; exit 1; }
-[ "$(grep -c "boot report" /t/loop.txt)" = 1 ] && echo "ok: boot-report.sh --loop reports once and stops when cloud-init is done"
-grep -q "boot report" /t/boot-report.txt && grep -q "wg-quick@wg0:" /t/boot-report.txt && grep -q "end boot report" /t/boot-report.log && echo "ok: boot-report.sh prints the summary to the console target and the log"
+[ "$(grep -c "end boot report" /t/loop.log)" = 1 ] || { echo "loop wrote $(grep -c "end boot report" /t/loop.log) reports, expected 1"; exit 1; }
+echo "ok: boot-report.sh --loop reports once and stops when cloud-init is done"
+grep -q "boot report" /t/boot-report.txt && grep -q "end boot report" /t/boot-report.log || { echo "summary missing from the console target or the log"; exit 1; }
+echo "ok: boot-report.sh prints the summary to the console target and the log"
 # resolver: default route interface replaces "auto" in nftables.conf and host.env
 /s/resolve-public-if.sh /t/edge-auto.nft /t/host.env
 ifc=$(ip -o -4 route show default | awk "{print \$5}" | head -1)
 grep -q "define PUBLIC_IF = \"$ifc\"" /t/edge-auto.nft && grep -q "^PUBLIC_IF=$ifc$" /t/host.env || { echo "resolver did not substitute $ifc"; cat /t/host.env; exit 1; }
 /s/resolve-public-if.sh /t/edge-auto.nft /t/host.env && echo "ok: resolve-public-if.sh substitutes the default-route interface (idempotent)"
 ' || fail "container checks failed"
-
-# 7. finalize-wireguard.sh dry run with a stub ssh/sudo/wg: rotates both hosts, updates the other peer, prints peers.yaml lines.
-STUB="$OUT/stub"; mkdir -p "$STUB"
-cat > "$STUB/ssh" <<'SH'
-#!/usr/bin/env bash
-echo "ssh $*" >> "$STUB_LOG"
-case "$*" in
-  *10.10.0.1*wg-rotate-key*) echo "NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=";;
-  *10.10.0.2*wg-rotate-key*) echo "NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=";;
-  *) exit 0;;
-esac
-SH
-cat > "$STUB/wg" <<'SH'
-#!/usr/bin/env bash
-echo "wg $*" >> "$STUB_LOG"; exit 0
-SH
-cat > "$STUB/sudo" <<'SH'
-#!/usr/bin/env bash
-echo "sudo $*" >> "$STUB_LOG"; "$@"
-SH
-chmod +x "$STUB"/*
-export STUB_LOG="$OUT/stub.log"; : > "$STUB_LOG"
-PATH="$STUB:$PATH" scripts/host/finalize-wireguard.sh \
-  --edge-bootstrap-pub BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= --core-bootstrap-pub CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC= \
-  --laptop-conf "$OUT/webapptest.conf" --laptop-iface utun9 --edge-endpoint 198.51.100.10:33434 --core-endpoint 198.51.100.20:33434 \
-  --edge-sdn 10.0.0.11:51820 --core-sdn 10.0.0.2:51820 --peers-out "$OUT/peers-snippet.yaml" --laptop-pub DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD= > "$OUT/finalize.out"
-{ grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.1 ' | grep -q 'psk-core.*NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=.*DDDDDDDD' \
-  && grep 'psk-map' "$STUB_LOG" | grep 'admin@10.10.0.2 ' | grep -q 'psk-edge.*NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=.*DDDDDDDD'; } || fail "finalize did not write psk-map with the rotated keys: $(grep psk-map "$STUB_LOG")"
-{ grep -q 'ssh .*admin@10.10.0.1 sudo /usr/local/sbin/wg-rotate-key.sh' "$STUB_LOG" && grep -q 'ssh .*admin@10.10.0.2 sudo /usr/local/sbin/wg-rotate-key.sh' "$STUB_LOG"; } || fail "finalize did not rotate both hosts: $(cat "$STUB_LOG")"
-grep -q 'ssh .*admin@10.10.0.2 .*peer BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= remove' "$STUB_LOG" || fail "finalize did not remove the edge bootstrap peer on core"
-grep -q 'ssh .*admin@10.10.0.2 .*peer NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1= allowed-ips 10.10.0.1/32 endpoint 10.0.0.11:51820.*Endpoint = 10.0.0.11:51820' "$STUB_LOG" || fail "finalize did not add the new edge peer on core"
-grep -q 'ssh .*admin@10.10.0.1 .*peer NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2= allowed-ips 10.10.0.2/32 endpoint 10.0.0.2:51820.*Endpoint = 10.0.0.2:51820' "$STUB_LOG" || fail "finalize did not add the new core peer on edge"
-{ grep -q '^PublicKey = NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1=' "$OUT/webapptest.conf" && grep -q '^PublicKey = NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2=' "$OUT/webapptest.conf" \
-  && ! grep -q 'BBBBBBBB\|CCCCCCCC' "$OUT/webapptest.conf"; } || fail "laptop config not updated with the rotated keys"
-grep -q 'wg set utun9 peer BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= remove' "$STUB_LOG" || fail "finalize did not update the live laptop tunnel"
-{ grep -q 'public_key: "NEWEDGEPUBKEYNEWEDGEPUBKEYNEWEDGEPUBKEYNEW1="' "$OUT/peers-snippet.yaml" && grep -q 'public_key: "NEWCOREPUBKEYNEWCOREPUBKEYNEWCOREPUBKEYNEW2="' "$OUT/peers-snippet.yaml"; } || fail "peers snippet missing rotated keys"
-# rotation order: edge rotated, laptop updated, then core — the laptop must reach core with core's (still bootstrap) key
-awk '/wg-rotate-key/ && /10.10.0.1/{e=NR} /wg-rotate-key/ && /10.10.0.2/{c=NR} /wg set utun9 peer BBBB/{l=NR} END{exit !(e<l && l<c)}' "$STUB_LOG" || fail "finalize order wrong (edge rotate → laptop update → core rotate)"
-pass "finalize-wireguard.sh rotates both hosts in a safe order and rewires every peer (stubbed ssh)"
 
 echo "ALL HOST BOOTSTRAP CHECKS PASSED"
