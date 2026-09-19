@@ -21,7 +21,7 @@ x-hardening: &hardening
 services:
   traefik:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/traefik:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:c304a3666ae3dd6dba0fb4349000fd53dbd342bc0b5bbfa2ac2717497f2d06d5
+    image: ghcr.io/akshatauppinventure/traefik:sha-939bd4eff9ce6d3236e11b3d5b760c1611d719ff@sha256:dca501a5833bd93aba91a2891bcee4cc471809c6bb2fb76e9dd1905b1cc9a1b4
     user: "65532:65532"
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:-test-vinayak.duckdns.org}
