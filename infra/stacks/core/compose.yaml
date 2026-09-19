@@ -103,7 +103,7 @@ services:
 
   keycloak:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/keycloak:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:98825e61d648434c51a62086f9399f92e957f8533adc56749420d1ce8f239106
+    image: ghcr.io/akshatauppinventure/keycloak:sha-939bd4eff9ce6d3236e11b3d5b760c1611d719ff@sha256:6d2e26bb1216f518862da5247dfe6776baff67a1881208329ae5dabbd86a7e85
     user: "1000:1000"
     depends_on:
       postgres:
