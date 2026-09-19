@@ -21,7 +21,7 @@ x-hardening: &hardening
 services:
   postgres:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/postgres:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:9c3da7ecd75d542d835ae83971b3182396bd5d556a00dc4ee863aa5fb3601bcf
+    image: ghcr.io/akshatauppinventure/postgres:sha-939bd4eff9ce6d3236e11b3d5b760c1611d719ff@sha256:be21608fd04297574f18dbb24fc0af8e3192e5ffc641c39d5455ea0a858f3c9a
     user: "999:999"
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
