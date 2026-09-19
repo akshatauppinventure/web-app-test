@@ -2,11 +2,9 @@
 # Renders infra/host/cloud-init/<role>.yaml.tmpl into a complete cloud-config: substitutes the
 # host variables from a vars file and embeds the repo's scripts/units/configs (indented) so the
 # committed files are the single source of truth. Usage: render-cloud-init.sh <edge|core> <vars-file> [out]
-# vars file (KEY=VALUE): HOSTNAME, ADMIN_USER, ADMIN_SSH_PUBKEY, PUBLIC_HOST, PUBLIC_IF (name or "auto"), WG_PORT (default 51820),
-#                        WG_PRIVATE_KEY (this host's bootstrap key, T20), ADMIN_PUBLIC_KEY,
-#                        CORE_PUBLIC_KEY/CORE_ENDPOINT (edge) or EDGE_PUBLIC_KEY/EDGE_ENDPOINT (core)
-# Every WireGuard key must be a real key (44-char base64): a placeholder would make wg-quick fail at
-# first boot and leave the host unreachable (sshd listens on the WireGuard address only).
+# vars file (KEY=VALUE): HOSTNAME, ADMIN_USER, ADMIN_SSH_PUBKEY, PUBLIC_HOST, PUBLIC_IF (name or "auto"),
+#   EDGE_PRIVATE_IP (default 10.0.0.11), CORE_PRIVATE_IP (default 10.0.0.2): private-network addresses (ADR-0026),
+#   ADMIN_SSH_CIDRS (default 0.0.0.0/0): comma-separated IPv4 CIDRs allowed to reach SSH.
 set -euo pipefail
 ROLE="${1:?edge|core}"; VARS="${2:?vars file}"; OUT="${3:-/dev/stdout}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,12 +13,19 @@ set -a
 # shellcheck source=/dev/null
 . "$VARS"
 set +a
-: "${HOSTNAME:?}" "${ADMIN_USER:?}" "${ADMIN_SSH_PUBKEY:?}" "${PUBLIC_HOST:?}" "${PUBLIC_IF:?}" "${ADMIN_PUBLIC_KEY:?}" "${WG_PRIVATE_KEY:?}"
-PEER_VAR="$([[ $ROLE == edge ]] && echo CORE_PUBLIC_KEY || echo EDGE_PUBLIC_KEY)"
-WG_PORT="${WG_PORT:-51820}"; export WG_PORT
-[[ "$WG_PORT" =~ ^[0-9]{1,5}$ && "$WG_PORT" -ge 1 && "$WG_PORT" -le 65535 ]] || { echo "render-cloud-init: WG_PORT must be 1-65535 (got '$WG_PORT')" >&2; exit 1; }
-for v in WG_PRIVATE_KEY ADMIN_PUBLIC_KEY "$PEER_VAR"; do
-  [[ "${!v:-}" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo "render-cloud-init: $v must be a 44-character base64 WireGuard key (got '${!v:-<unset>}')" >&2; exit 1; }
+: "${HOSTNAME:?}" "${ADMIN_USER:?}" "${ADMIN_SSH_PUBKEY:?}" "${PUBLIC_HOST:?}" "${PUBLIC_IF:?}"
+EDGE_PRIVATE_IP="${EDGE_PRIVATE_IP:-10.0.0.11}"; CORE_PRIVATE_IP="${CORE_PRIVATE_IP:-10.0.0.2}"
+ADMIN_SSH_CIDRS="${ADMIN_SSH_CIDRS:-0.0.0.0/0}"
+export EDGE_PRIVATE_IP CORE_PRIVATE_IP ADMIN_SSH_CIDRS
+octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'; ipv4="$octet\.$octet\.$octet\.$octet"
+for v in EDGE_PRIVATE_IP CORE_PRIVATE_IP; do
+  [[ "${!v}" =~ ^$ipv4$ ]] || { echo "render-cloud-init: $v must be an IPv4 address (got '${!v}')" >&2; exit 1; }
+done
+[[ "$EDGE_PRIVATE_IP" != "$CORE_PRIVATE_IP" ]] || { echo "render-cloud-init: EDGE_PRIVATE_IP and CORE_PRIVATE_IP must differ" >&2; exit 1; }
+IFS=',' read -r -a cidrs <<<"$ADMIN_SSH_CIDRS"
+(( ${#cidrs[@]} > 0 )) || { echo "render-cloud-init: ADMIN_SSH_CIDRS is empty" >&2; exit 1; }
+for c in "${cidrs[@]}"; do
+  [[ "$c" =~ ^$ipv4/(3[0-2]|[12]?[0-9])$ ]] || { echo "render-cloud-init: ADMIN_SSH_CIDRS entry '$c' is not an IPv4 CIDR (a.b.c.d/n)" >&2; exit 1; }
 done
 
 python3 - "$TMPL" "$OUT" "$ROLE" "$HERE" <<'PY'
@@ -33,25 +38,19 @@ def indent(path, n=6):
 env = os.environ
 subs = {
     "__HOSTNAME__": env["HOSTNAME"], "__ADMIN_USER__": env["ADMIN_USER"], "__ADMIN_SSH_PUBKEY__": env["ADMIN_SSH_PUBKEY"],
-    "__PUBLIC_HOST__": env["PUBLIC_HOST"], "__ADMIN_PUBLIC_KEY__": env["ADMIN_PUBLIC_KEY"], "__WG_PORT__": env["WG_PORT"],
-    "__WG_PRIVATE_KEY__": env["WG_PRIVATE_KEY"],
-    "__CORE_PUBLIC_KEY__": env.get("CORE_PUBLIC_KEY", ""),
-    "__CORE_ENDPOINT__": env.get("CORE_ENDPOINT", "10.0.0.2:" + env["WG_PORT"]),
-    "__EDGE_PUBLIC_KEY__": env.get("EDGE_PUBLIC_KEY", ""),
-    "__EDGE_ENDPOINT__": env.get("EDGE_ENDPOINT", "10.0.0.11:" + env["WG_PORT"]),
+    "__PUBLIC_HOST__": env["PUBLIC_HOST"],
+    "__EDGE_PRIVATE_IP__": env["EDGE_PRIVATE_IP"], "__CORE_PRIVATE_IP__": env["CORE_PRIVATE_IP"],
+    "__ADMIN_SSH_CIDRS__": ", ".join(c.strip() for c in env["ADMIN_SSH_CIDRS"].split(",")),
 }
 files = {
     "__DAEMON_JSON__": here / "docker/daemon.json",
     "__NFT_RULES__": here / f"nftables/{role}.nft",
-    "__WG_TEMPLATE__": here / f"wireguard/wg0-{role}.conf.tmpl",
     "__DOCKER_USER_RULES__": here / "scripts/docker-user-rules.sh",
-    "__WG_APPLY_PSKS__": here / "scripts/wg-apply-psks.sh",
-    "__WG_ROTATE_KEY__": here / "scripts/wg-rotate-key.sh",
     "__RESOLVE_PUBLIC_IF__": here / "scripts/resolve-public-if.sh",
     "__BOOT_REPORT__": here / "scripts/boot-report.sh",
     "__HEALTHCHECK__": here / "scripts/healthcheck.sh",
     "__UNIT_DOCKER_USER_RULES__": here / "systemd/docker-user-rules.service",
-    "__UNIT_DOCKER_DROPIN__": here / "systemd/docker.service.d/wireguard.conf",
+    "__UNIT_DOCKER_DROPIN__": here / "systemd/docker.service.d/ordering.conf",
     "__UNIT_HEALTHCHECK_SERVICE__": here / "systemd/healthcheck.service",
     "__UNIT_HEALTHCHECK_TIMER__": here / "systemd/healthcheck.timer",
     "__BOOTSTRAP_COMPOSE__": here / ("bootstrap/portainer-agent.compose.yaml" if role == "edge" else "bootstrap/portainer-server.compose.yaml"),
@@ -69,7 +68,7 @@ for k, v in subs.items():
 for k, p in files.items():
     if k in text:
         body = indent(p)
-        # placeholders inside embedded files (nft public interface, wg keys) are substituted too
+        # placeholders inside embedded files (nft interface and SSH sources) are substituted too
         body = body.replace("__PUBLIC_IF__", env["PUBLIC_IF"])
         for sk, sv in subs.items():
             body = body.replace(sk, sv)

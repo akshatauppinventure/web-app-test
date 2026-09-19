@@ -54,7 +54,7 @@ variable "cloud_init_core_path" {
 }
 
 variable "private_network_cidr" {
-  description = "SDN private network used only as the WireGuard transport between A and B (ADR-0015)"
+  description = "SDN private network between A and B: Keycloak/FastAPI and the Portainer Agent (ADR-0026)"
   type        = string
   default     = "10.0.0.0/24"
 }
@@ -70,13 +70,13 @@ variable "core_private_ip" {
   default = "10.0.0.2"
 }
 
-variable "wireguard_port" {
-  description = "UDP port WireGuard listens on (ADR-0015 default 51820; UpCloud trial accounts must use 33434, the only inbound+outbound UDP port their fixed firewall passes)"
-  type        = number
-  default     = 51820
+variable "admin_ssh_cidrs" {
+  description = "IPv4 CIDRs allowed to reach SSH (TCP 22) on both servers (ADR-0026). Default: anywhere, keys only; narrow to the admin's address. Keep in sync with ADMIN_SSH_CIDRS in the cloud-init vars"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
   validation {
-    condition     = var.wireguard_port >= 1 && var.wireguard_port <= 65535
-    error_message = "wireguard_port must be 1-65535."
+    condition     = length(var.admin_ssh_cidrs) >= 1 && length(var.admin_ssh_cidrs) <= 5 && alltrue([for c in var.admin_ssh_cidrs : can(cidrnetmask(c))])
+    error_message = "admin_ssh_cidrs must hold 1-5 IPv4 CIDRs (a.b.c.d/n)."
   }
 }
 

@@ -1,6 +1,6 @@
 # Routers and services (ADR-0012 §6). Go templates read PUBLIC_HOST, FRONTEND_UPSTREAM and
 # KEYCLOAK_UPSTREAM from the environment so the same file serves the local test (Docker service
-# names) and the POC (frontend on the edge network, Keycloak over WireGuard at 10.10.0.2).
+# names) and the POC (frontend on the edge network, Keycloak on core's private address 10.0.0.2).
 http:
   routers:
     frontend:

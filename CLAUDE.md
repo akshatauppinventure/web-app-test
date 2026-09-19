@@ -1,12 +1,12 @@
 # CLAUDE.md — working conventions for this repository
 
-Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds the 24 accepted decisions. Do not re-open accepted decisions; write a superseding ADR instead.
+Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds the accepted decisions (ADR-0026 supersedes ADR-0015). Do not re-open accepted decisions; write a superseding ADR instead. Work deferred to production lives in `docs/production-hardening.md`; add to it rather than to TODO comments.
 
 ## Fixed facts
 
 - GitHub repo: `akshatauppinventure/web-app-test` (private). Default branch `main`. Rulesets are unavailable on this private repo under the Free plan (owner decision P12 pending); protection is process-only: never push to `main` directly, always PR.
 - POC hostname: `test-vinayak.duckdns.org` (DuckDNS, Let's Encrypt HTTP-01). No custom domain, Cloudflare or Apple login in the POC.
-- Hosting target: UpCloud `us-nyc1`, two Ubuntu 26.04 VPS: A "edge" (Traefik, CrowdSec, frontend) and B "core" (Keycloak, backend, PostgreSQL, Portainer Server). WireGuard `10.10.0.1` (A) / `10.10.0.2` (B).
+- Hosting target: UpCloud `us-nyc1`, two Ubuntu 26.04 VPS: A "edge" (Traefik, CrowdSec, frontend) and B "core" (Keycloak, backend, PostgreSQL, Portainer Server). Private network `10.0.0.11` (A) / `10.0.0.2` (B); admin SSH is public and key-only on both. **No WireGuard in the POC** (ADR-0026); restoring it is production-hardening item 1.
 - Owner-only prerequisites (accounts, tokens, purchases) are listed in `PLAN.md` § "Owner prerequisites". Never fake them; stop and report when one is missing.
 
 ## How work is done
@@ -53,7 +53,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - `make frontend-check` — frozen install, next-version guard, eslint, tsc, vitest, `next build`. Run before every frontend commit.
 - `make tofu-check` — for every `infra/tofu/<provider>` module: `tofu fmt -check`, `tofu init -backend=false`, `tofu validate`, `tflint`, `trivy config`, then `scripts/test/tofu-contract.sh` (no credentials). `tofu plan` needs `UPCLOUD_TOKEN` (P6) or the OVH `openrc` (P15) and the rendered cloud-init files.
 - `make secrets-check` — SOPS/age round trip with a throwaway key, `infra/secrets/SCHEMA.md` vs every referenced secret, generator coverage, dry-run push. `make secrets-gen` / `secrets-encrypt SRC=` / `secrets-push HOST=` are the owner's workflow (`docs/runbooks/secrets.md`).
-- `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, `wg-quick strip`, DOCKER-USER rules) in `ubuntu:26.04` containers.
+- `make host-check` — validates `infra/host/*` (render both cloud-init templates with `scripts/test/host-vars.example`, `cloud-init schema`, `nft -c`, DOCKER-USER rules, render validation, boot report) in `ubuntu:26.04` containers.
 - `make stacks-check` — `check-compose.sh`, `check-published-ports.sh` (allowlist `infra/policy/published-ports.txt`), `check-hardening.py` (baseline + `infra/policy/hardening-exceptions.yaml`) over every compose file. `make stacks-dryrun` starts the real `infra/stacks/*/compose.yaml` with the overlays in `scripts/test/stacks/` (local images, `.dev-secrets`, loopback binds).
 - `make crowdsec-test` — after `make traefik-test`: bouncer registration, collections, AppSec detect-only, manual ban → 403, fail-open.
 - `make traefik-test` — Traefik image + whoami upstreams on `127.0.0.1:18443` and `scripts/test/traefik-routes.sh` (routing, `/auth/admin` 404, headers, redirect, body limits, 429s, sniStrict). Run after any change under `infra/traefik/`.
@@ -91,10 +91,10 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 ## Host conventions (`infra/host/`)
 
 - The committed scripts/units/configs are the source of truth; `scripts/render-cloud-init.sh` embeds them into the cloud-init templates at render time. Never edit rendered output by hand.
-- Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain or if any WireGuard key is not a real 44-char key (a placeholder would brick the host: sshd listens on `wg0` only). `PUBLIC_IF=auto` is resolved from the default route at first boot (`scripts/resolve-public-if.sh`).
-- WireGuard port: `WG_PORT` (render) / `wireguard_port` (both modules), default 51820. The POC runs the default 51820 with managed rulesets (the trial-mode attempt on 33434 failed: the fixed trial firewall is stateless and blocks TCP return traffic, PLAN deviation 5 resolved). The knobs stay for constrained accounts; the laptop config uses the same `ListenPort` as the servers.
-- WireGuard keys (T20): the laptop generates a *bootstrap* key pair per host, rendered into user_data so all peers are valid at first boot; `scripts/host/finalize-wireguard.sh` then rotates both keys on the hosts (`wg-rotate-key.sh`, generated on the host, never leaves it), rewires peers, writes `psk-map` and prints the `peers.yaml` snippet. Only public keys go into `wireguard/peers.yaml`. Laptop config: `scripts/host/render-laptop-wg.sh`. Tests: `scripts/test/host-bootstrap.sh` (stubbed ssh).
-- Host scripts read secrets from `/etc/app/secrets/<name>` and role settings from `/etc/app/host.env` (`HOST_ROLE`, `PEER_IP`, `PUBLIC_HOST`, `PUBLIC_IF`, `NOTIFY_WEBHOOK_URL`).
+- Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain, if `EDGE_PRIVATE_IP`/`CORE_PRIVATE_IP` are not distinct IPv4 addresses, or if an `ADMIN_SSH_CIDRS` entry is not an IPv4 CIDR. `PUBLIC_IF=auto` is resolved from the default route at first boot (`scripts/resolve-public-if.sh`).
+- Access (ADR-0026): sshd listens on all addresses (keys only, `AllowUsers admin`); nftables accepts TCP 22 on the public interface only from `ADMIN_SSH_CIDRS`, rate-limited per source; the provider firewall uses the same list as `admin_ssh_cidrs` (both modules, 1–5 CIDRs, default `0.0.0.0/0`). Admin UIs go through `ssh -L` (Portainer `127.0.0.1:9443`, Keycloak `10.0.0.2:8080`); the SSH aliases `webapptest-edge` / `webapptest-core` in `~/.ssh/config` are what `secrets-push.sh` targets by default.
+- Site-to-site traffic uses the private network in plain HTTP: `DOCKER-USER` allows 8080/8000 on core and 9001 on edge only from `PEER_IP` and never via the public interface. Tests: `scripts/test/host-config.sh`, `scripts/test/host-bootstrap.sh`; both assert that no WireGuard remnant comes back.
+- Host scripts read secrets from `/etc/app/secrets/<name>` and role settings from `/etc/app/host.env` (`HOST_ROLE`, `PEER_IP` = the other host's private address, `PUBLIC_HOST`, `PUBLIC_IF`, `NOTIFY_WEBHOOK_URL`).
 - Validation runs in `ubuntu:26.04` containers (`nft -c` needs `--privileged`; macOS `sed` has no `\|`, so use Python for multi-key substitutions in tests).
 
 ## Container image conventions
@@ -171,9 +171,10 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T14 Traefik image and configuration | done | #12 |
 | T15 CrowdSec engine, bouncer, AppSec (detect-only) | done | #13 |
 | T16 GitOps stacks (edge, core) + policy checks | done | #14 |
-| T17 Host configuration (cloud-init, nftables, WireGuard, Docker, timers) | done | #15 |
+| T17 Host configuration (cloud-init, nftables, Docker, timers) | done; WireGuard removed by ADR-0026 | #15 |
 | T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
 | T19 Secrets tooling (SOPS + age) | done; P5 done, `infra/secrets/*.sops.yaml` committed (P9/P10/CrowdSec values still `CHANGE_ME`) | #16, #47 |
 | T13 deploy-PR bot + digest verification | done; six deploy PRs #39–#44 verified and auto-merged, negative PR #38 failed at cosign verify | #36, #37, #45 |
 | T26 OpenTofu module for OVHcloud (second provider, contract test) | done (live plan/apply when the OVH POC starts, P15) | #48 |
-| T20–T25 | not started | — |
+| T20 Provision both VPS | in progress: servers created 2026-09-17 with WireGuard, then WireGuard removed (ADR-0026); destroy and re-provision next | #51, #53, #55, #56, this PR |
+| T21–T25 | not started | — |

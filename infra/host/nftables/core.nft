@@ -1,16 +1,21 @@
 #!/usr/sbin/nft -f
-# VPS-B "core" host firewall (ADR-0014 layer 2). No public TCP ports at all: only WireGuard (UDP
-# $WG_PORT) from the internet; SSH and Portainer only over wg0 from admin peers; Keycloak/FastAPI only
-# from VPS-A over wg0 (enforced again in DOCKER-USER for the container-bound ports).
+# VPS-B "core" host firewall (ADR-0014 layer 2, ADR-0026). The only public port is SSH (keys only,
+# allowed sources, rate-limited). Keycloak/FastAPI are reachable only from VPS-A's private-network
+# address, enforced in DOCKER-USER because they are container ports. Portainer listens on 127.0.0.1
+# and is reached through SSH port forwarding.
 flush ruleset
 
 define PUBLIC_IF = "__PUBLIC_IF__"
-define WG_IF = "wg0"
-define WG_PORT = __WG_PORT__
-define ADMIN_PEERS = { 10.10.0.10-10.10.0.19 }
-define EDGE_HOST = 10.10.0.1
+define ADMIN_SSH_SOURCES = { __ADMIN_SSH_CIDRS__ }
 
 table inet filter {
+  set ssh_rate {
+    type ipv4_addr
+    flags dynamic, timeout
+    timeout 1m
+    size 65535
+  }
+
   chain input {
     type filter hook input priority filter; policy drop;
 
@@ -22,9 +27,7 @@ table inet filter {
     ip protocol icmp icmp type echo-request limit rate 10/second accept
     ip6 nexthdr icmpv6 icmpv6 type { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-neighbor-solicit, nd-neighbor-advert } accept
 
-    iifname $PUBLIC_IF udp dport $WG_PORT accept
-
-    iifname $WG_IF ip saddr $ADMIN_PEERS tcp dport 22 accept
+    iifname $PUBLIC_IF ip saddr $ADMIN_SSH_SOURCES tcp dport 22 ct state new add @ssh_rate { ip saddr limit rate 10/minute burst 5 packets } accept
 
     counter drop
   }

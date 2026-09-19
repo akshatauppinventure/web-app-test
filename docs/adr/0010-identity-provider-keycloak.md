@@ -1,6 +1,6 @@
 # ADR-0010: Identity provider: Keycloak
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (admin console over SSH port forwarding; the A→B hop is no longer encrypted)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0009, ADR-0011, ADR-0012, ADR-0022

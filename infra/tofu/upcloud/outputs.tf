@@ -1,5 +1,5 @@
 output "public_ipv4" {
-  description = "Public IPv4 per server (edge -> DuckDNS record P8; both -> admin WireGuard endpoints)"
+  description = "Public IPv4 per server (edge -> DuckDNS record P8; both -> admin SSH, ~/.ssh/config)"
   value = {
     for k, s in upcloud_server.this : k => one([
       for nic in s.network_interface : nic.ip_address if nic.type == "public"
@@ -8,7 +8,7 @@ output "public_ipv4" {
 }
 
 output "private_ipv4" {
-  description = "SDN private IPv4 per server (A<->B WireGuard endpoints, infra/host/wireguard/peers.yaml)"
+  description = "SDN private IPv4 per server (EDGE_PRIVATE_IP/CORE_PRIVATE_IP in the cloud-init vars)"
   value = {
     for k, s in upcloud_server.this : k => one([
       for nic in s.network_interface : nic.ip_address if nic.type == "private"

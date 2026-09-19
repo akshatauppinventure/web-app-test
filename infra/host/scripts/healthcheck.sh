@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Host health check every 5 minutes (ADR-0024 §1): container health, WireGuard handshake age,
+# Host health check every 5 minutes (ADR-0024 §1): container health, private-network peer reachability,
 # disk usage, backup age (core), certificate expiry (edge). Failures go to journald and, when
 # NOTIFY_WEBHOOK_URL is set in /etc/app/host.env, to a webhook (e.g. an ntfy topic).
 set -uo pipefail
@@ -8,11 +8,10 @@ ENV_FILE="${ENV_FILE:-/etc/app/host.env}"
 [[ -r "$ENV_FILE" ]] && . "$ENV_FILE"
 ROLE="${HOST_ROLE:-unknown}"
 PUBLIC_HOST="${PUBLIC_HOST:-test-vinayak.duckdns.org}"
-PEER_IP="${PEER_IP:-}"                      # 10.10.0.2 on edge, 10.10.0.1 on core
+PEER_IP="${PEER_IP:-}"                      # the other host's private-network address (ADR-0026)
 DISK_LIMIT="${DISK_LIMIT_PERCENT:-80}"
 BACKUP_MAX_AGE_H="${BACKUP_MAX_AGE_HOURS:-26}"
 CERT_MIN_DAYS="${CERT_MIN_DAYS:-14}"
-WG_MAX_AGE_S="${WG_MAX_HANDSHAKE_AGE_SECONDS:-180}"
 problems=()
 
 # 1. containers: everything running must be healthy (or have no healthcheck)
@@ -23,17 +22,9 @@ done < <(docker ps --format '{{.Names}} {{.State}}' 2>/dev/null | awk '$2=="runn
   h="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$n" 2>/dev/null)"; echo "$n $h"; done)
 [[ "$(docker ps -q 2>/dev/null | wc -l)" -gt 0 ]] || problems+=("no containers running")
 
-# 2. WireGuard handshake with the peer host
+# 2. the peer host answers on the private network (edge -> Keycloak/FastAPI, core -> Portainer Agent)
 if [[ -n "$PEER_IP" ]]; then
-  now="$(date +%s)"
-  # latest-handshakes lists public keys; map the peer IP to its key via allowed-ips
-  hs=""
-  while read -r pub ips; do
-    if [[ "$ips" == *"$PEER_IP/32"* ]]; then hs="$(wg show wg0 latest-handshakes | awk -v k="$pub" '$1==k{print $2}')"; fi
-  done < <(wg show wg0 allowed-ips 2>/dev/null)
-  if [[ -z "$hs" || "$hs" == "0" ]]; then problems+=("wireguard: no handshake with $PEER_IP")
-  elif (( now - hs > WG_MAX_AGE_S )); then problems+=("wireguard: last handshake with $PEER_IP $((now - hs))s ago")
-  fi
+  ping -c 2 -W 2 -q "$PEER_IP" >/dev/null 2>&1 || problems+=("private network: $PEER_IP does not answer ping")
 fi
 
 # 3. disk

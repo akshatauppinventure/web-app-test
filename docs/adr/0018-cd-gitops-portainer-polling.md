@@ -1,6 +1,6 @@
 # ADR-0018: CD: GitOps with Portainer polling
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0006, ADR-0014, ADR-0015, ADR-0016, ADR-0017, ADR-0019

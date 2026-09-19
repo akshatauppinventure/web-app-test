@@ -1,8 +1,8 @@
 # Runbook: owner prerequisites and how to unblock each one
 
 **Purpose:** everything only the owner can do to unblock the remaining PLAN tasks, in the order that unblocks the most. Each item says what to click, what to run, where the value goes, how to verify, and which task it unblocks. Nothing here is committed in clear: values marked **secret** go into SOPS files or a password manager.
-**Prerequisites:** a laptop with `gh`, `docker`, `make`, `jq`, `openssl`, `age`, `sops`, `wireguard-tools` (`brew install gh age sops jq wireguard-tools`).
-**Last updated:** 2026-09-16 (T11 merged and green; T12 next; T13 needs P3 + P4; T20+ blocked on P5–P7).
+**Prerequisites:** a laptop with `gh`, `docker`, `make`, `jq`, `openssl`, `age`, `sops` (`brew install gh age sops jq`).
+**Last updated:** 2026-09-19 (WireGuard removed from the POC by ADR-0026, so P7 is no longer needed; T20 re-provisions with public key-only SSH).
 
 ## Checklist (do in this order)
 
@@ -15,7 +15,7 @@
 | P3 | GHCR packages private — **done** (CI enforces it on every publish) | ADR-0017 §5, T13 | — |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files — **done** (5 owner values still `CHANGE_ME`: P9, P10, CrowdSec enrollment) | T19 completion, T20–T22 | — |
-| P7 | WireGuard key pair on the laptop — **done** (public key in `peers.yaml`) | T20 | — |
+| P7 | ~~WireGuard key pair on the laptop~~ — **no longer needed** (ADR-0026; restoring WireGuard is production-hardening item 1) | — | — |
 | P6 | UpCloud account, payment method, API token — **done** (token in `~/.config/upcloud/token`, mode 600) | T18 plan, T20 apply (billing starts) | — |
 | P8 | DuckDNS record → VPS-A public IP | T22 | 2 min (after T20) |
 | P9 | Google OAuth client "poc" | T22 | 5 min |
@@ -135,25 +135,19 @@ The deploy bot must open PRs with an **installation token** so required checks r
 4. Verify: `sops -d infra/secrets/core.sops.yaml | head -3` decrypts on your laptop (on macOS sops looks in `~/Library/Application Support/sops/age/keys.txt`, so either move the file there or `export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt` in your shell profile); `make secrets-check` passes; `git grep -n 'ENC\[AES256_GCM' infra/secrets | head -1` shows encrypted values.
 5. Values you fill later (P9, P10, CrowdSec enrollment): `sops infra/secrets/core.sops.yaml` opens the file decrypted in `$EDITOR` and re-encrypts on save.
 
-## P7 · WireGuard key pair on the laptop — **done 2026-09-16** (`owner-laptop` in `infra/host/wireguard/peers.yaml`)
+## P7 · WireGuard key pair on the laptop — **no longer needed** (2026-09-19, ADR-0026)
 
-1. `brew install wireguard-tools` (CLI) and optionally the **WireGuard** app from the Mac App Store (GUI).
-2. Generate keys (**private key is secret, stays on the laptop**):
-   ```bash
-   umask 077 && mkdir -p ~/.config/wireguard && cd ~/.config/wireguard
-   wg genkey | tee laptop.key | wg pubkey > laptop.pub && cat laptop.pub
-   ```
-3. Put the **public** key into `infra/host/wireguard/peers.yaml` under `admins: - name: owner-laptop` (replace `REPLACE_WITH_ADMIN_PUBLIC_KEY`). Commit via PR.
-4. The laptop config is created in T20 once the servers' public keys exist (template: two peers, `AllowedIPs = 10.10.0.1/32` and `10.10.0.2/32`, `PersistentKeepalive = 25`, plus the pre-shared keys from `infra/secrets`).
-5. Verify: `wg pubkey < laptop.key` prints the same key as `laptop.pub`.
+WireGuard was removed from the POC. The laptop key pair in `~/.config/wireguard/` is unused and can be deleted; nothing in the repository references it any more. Restoring a VPN is item 1 of [`docs/production-hardening.md`](../production-hardening.md), which will need a fresh key pair.
+
+Instead, T20 needs only your SSH key (`~/.ssh/id_ed25519.pub`) and, optionally, your current public IPv4 address to narrow SSH access (`curl -4 -s https://ifconfig.me`).
 
 ## P6 · UpCloud account and API token — **done 2026-09-17**, plus the trial exit (deposit) needed by T20
 
-**Resolved 2026-09-17: deposit made after trial mode proved unusable.** The fixed trial firewall is stateless with no return-traffic rules for TCP: servers cannot reach the package repositories, so cloud-init never finishes (observed: stuck after SSH host-key generation). The port/firewall knobs below remain for reference. Original note on the trial attempt — consequences: WireGuard runs on UDP 33434 (the only UDP port the fixed firewall passes both ways), the provider firewall layer is the fixed trial rule set (`manage_provider_firewall = false`), and the trial ends after 30 days unless a deposit is made (resources are then removed). To leave trial mode later: make the deposit, set `manage_provider_firewall = true`, `tofu apply` (adds the rulesets; the port can stay 33434 or move back to 51820 with a re-provision).
+**Resolved 2026-09-17: deposit made after trial mode proved unusable.** The fixed trial firewall is stateless with no return-traffic rules for TCP: servers cannot reach the package repositories, so cloud-init never finishes (observed: stuck after SSH host-key generation). The trial ends after 30 days unless a deposit is made (resources are then removed). `manage_provider_firewall = false` remains for accounts whose firewall cannot be modified.
 
-**Background.** Until a one-time deposit of at least $10 is made (Hub → Billing → Add funds, card verified with a $0/$1 authorization), the account is a *trial*: every server gets a fixed provider firewall that cannot be edited (`tofu apply` fails with `TRIAL_FIREWALL`) and that drops inbound UDP 51820, so the WireGuard tunnel from the laptop can never connect. Servers can be created in trial mode (2 cores / 4 GB total limit is not enforced on this account), but nothing can be administered. Make the deposit, then re-run `tofu apply` in `infra/tofu/upcloud` to create the rulesets.
+**Background.** Until a one-time deposit of at least $10 is made (Hub → Billing → Add funds, card verified with a $0/$1 authorization), the account is a *trial*: every server gets a fixed provider firewall that cannot be edited (`tofu apply` fails with `TRIAL_FIREWALL`). Servers can be created in trial mode (2 cores / 4 GB total limit is not enforced on this account), but they cannot install packages. Make the deposit, then re-run `tofu apply` in `infra/tofu/upcloud` to create the rulesets.
 
-1. https://signup.upcloud.com → create the account, verify email, add a **payment method** (Hub → Billing) **and make the minimum $10 deposit** — that deposit is what ends the trial mode (fixed firewall, no UDP 51820 inbound). Enable **two-factor authentication** on the account (Hub → Account → Security).
+1. https://signup.upcloud.com → create the account, verify email, add a **payment method** (Hub → Billing) **and make the minimum $10 deposit** — that deposit is what ends the trial mode (fixed, unmodifiable firewall). Enable **two-factor authentication** on the account (Hub → Account → Security).
 2. Create an API credential with the least access the module needs (servers, networks, storages):
    - Hub → **Account → API tokens** (or **People → API tokens**, naming varies) → **Create token**, name `web-app-test-tofu`, expiry ≤ 90 days. If the dialog offers permission scopes, allow only Servers, Networks, Storages and IP addresses. If tokens are not offered, create a **sub-account** (Hub → People → Add) with **API access** enabled, restricted to your laptop's public IP, and use its username/password instead.
    - Copy the token (**secret**) to the password manager.
@@ -239,8 +233,8 @@ Only needed when you repeat the POC on OVHcloud (ADR-0025). Vint Hill, VA is ser
 | P14 done | T11 CI (push branch, PR, negative PRs) | Claude | "push and merge T11" |
 | P14 | T12 build-publish (six images to GHCR, signed) | Claude | after T11 |
 | T12 + P3 + P4 | T13 deploy-PR bot + digest verification | Claude | after T12 |
-| P5 + P6 + P7 | T20 provision both VPS (`tofu apply`, WireGuard, baselines) — **billing starts** | owner runs `tofu apply`; Claude prepares vars/plan | after T13 preferably (real digests in the stacks) |
-| T20 + T13 | T21 Portainer bootstrap and Git stacks | owner over WireGuard; Claude drafts the runbook | after T20 |
+| P5 + P6 | T20 provision both VPS (`tofu apply`, SSH, baselines) — **billing starts** | owner runs `tofu apply`; Claude prepares vars/plan | after T13 preferably (real digests in the stacks) |
+| T20 + T13 | T21 Portainer bootstrap and Git stacks | owner over SSH port forwarding; Claude drafts the runbook | after T20 |
 | T21 + P8 + P9 | T22 DNS, TLS, first end-to-end deployment | both | after T21 |
 | T22 + P10 | T23 backups live, first restore drill | both | after T22 |
 | T23 (+ P11) | T24 security verification and report; T25 close-out | Claude, owner review | after T23 |

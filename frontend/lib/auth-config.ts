@@ -7,7 +7,7 @@ export interface AuthEnv {
   clientSecret: string;
   /** Public issuer, e.g. https://test-vinayak.duckdns.org/auth/realms/app (matches token `iss`). */
   issuer: string;
-  /** Same realm reached over the internal network, e.g. http://10.10.0.2:8080/auth/realms/app. */
+  /** Same realm reached over the internal network, e.g. http://10.0.0.2:8080/auth/realms/app. */
   internalIssuer: string;
   apiBaseUrl: string;
 }

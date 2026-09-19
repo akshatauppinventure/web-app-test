@@ -1,4 +1,4 @@
-# SDN private network + router (ADR-0002 §2): carries only the WireGuard tunnel between A and B.
+# SDN private network + router (ADR-0002 §2): carries Keycloak/FastAPI and Portainer Agent traffic between A and B (ADR-0026).
 # No DHCP default route, so the public interface stays the default gateway.
 resource "upcloud_router" "private" {
   name   = "${var.hostname_prefix}-router"

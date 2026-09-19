@@ -1,6 +1,6 @@
 # ADR-0003: Edge/core 2-VPS topology for the POC, 3-tier for production
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (WireGuard hops replaced by the provider private network)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0002, ADR-0006, ADR-0010, ADR-0011, ADR-0014, ADR-0015

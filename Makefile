@@ -76,7 +76,7 @@ secrets-encrypt: ## Encrypt SRC/{edge,core}.yaml to infra/secrets/*.sops.yaml wi
 	@test -n "$(SRC)" || (echo "SRC=<dir> required"; exit 1)
 	@for h in edge core; do sops --encrypt --input-type yaml --output-type yaml --filename-override infra/secrets/$$h.sops.yaml $(SRC)/$$h.yaml > infra/secrets/$$h.sops.yaml && rm -P $(SRC)/$$h.yaml 2>/dev/null || rm -f $(SRC)/$$h.yaml; done
 	@echo "encrypted infra/secrets/{edge,core}.sops.yaml"
-secrets-push: ## Decrypt and deliver secrets to HOST=edge|core over WireGuard (DRY=1 to only print destinations)
+secrets-push: ## Decrypt and deliver secrets to HOST=edge|core over SSH (aliases webapptest-edge/-core; DRY=1 to only print destinations)
 	@test -n "$(HOST)" || (echo "HOST=edge|core required"; exit 1)
 	scripts/secrets/secrets-push.sh $(HOST) $(if $(DRY),--dry-run,)
 secrets-check: ## SOPS round trip with a throwaway key, schema vs references, generators, dry-run push
@@ -93,7 +93,7 @@ tofu-check: ## Static checks for every infra/tofu/<provider> module (fmt, init -
 	scripts/test/tofu-check.sh
 
 .PHONY: host-check
-host-check: ## Validate infra/host (rendered cloud-init schema, nftables, WireGuard, DOCKER-USER rules, T20 bootstrap scripts) in ubuntu:26.04 containers
+host-check: ## Validate infra/host (rendered cloud-init schema, nftables, sshd, DOCKER-USER rules, T20 bootstrap scripts) in ubuntu:26.04 containers
 	scripts/test/host-config.sh
 	scripts/test/host-bootstrap.sh
 

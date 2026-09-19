@@ -1,6 +1,6 @@
 # OpenTofu module: UpCloud (ADR-0002, ADR-0004, ADR-0014, ADR-0015)
 
-Creates exactly: 2 servers (`<prefix>-edge` 2xCPU-4GB, `<prefix>-core` 4xCPU-8GB, Ubuntu 26.04 template, public IPv4 only, private SDN interface at 10.0.0.11/.2 — x.1 is the SDN gateway and is refused for servers), 1 private network + 1 router, and one stateless firewall ruleset per server (edge: 80/443/51820 + return traffic; core: 51820 + return traffic; IPv6 dropped; default drop in / accept out; 12–14 rules).
+Creates exactly: 2 servers (`<prefix>-edge` 2xCPU-4GB, `<prefix>-core` 4xCPU-8GB, Ubuntu 26.04 template, public IPv4 only, private SDN interface at 10.0.0.11/.2 — x.1 is the SDN gateway and is refused for servers), 1 private network + 1 router, and one stateless firewall ruleset per server (edge: 80/443 + SSH from each `admin_ssh_cidrs` entry + return traffic; core: SSH + return traffic; IPv6 dropped; default drop in / accept out; 11–13 rules with the default single CIDR, at most 17 with five).
 
 ## Usage (owner, T20)
 
@@ -11,7 +11,7 @@ infra/host/scripts/render-cloud-init.sh core /path/core.vars .tofu-rendered/core
 cd infra/tofu/upcloud && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
 tofu init && tofu plan -out plan.bin          # expect: 2 servers, 1 network, 1 router, 2 firewall rulesets
 tofu apply plan.bin                           # billing starts
-tofu output                                   # public/private IPs for DuckDNS (P8) and peers.yaml
+tofu output                                   # public IPs for DuckDNS (P8) and ~/.ssh/config
 ```
 
 **State** is local (`terraform.tfstate`, gitignored) and committed only encrypted: `sops --encrypt terraform.tfstate > terraform.tfstate.sops` (rule in `.sops.yaml`); same for `terraform.tfvars`. Decrypt before the next `tofu` run.

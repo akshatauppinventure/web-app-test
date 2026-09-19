@@ -85,10 +85,10 @@ services:
       LOG_LEVEL: INFO
       OIDC_ISSUER: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth/realms/app
       OIDC_JWKS_URL: http://keycloak:8080/auth/realms/app/protocol/openid-connect/certs
-      FORWARDED_ALLOW_IPS: "10.10.0.1"
+      FORWARDED_ALLOW_IPS: "10.0.0.11"   # edge private-network address (ADR-0026)
     secrets: [database_url]
     ports:
-      - "${CORE_BIND_IP:-10.10.0.2}:8000:8000"
+      - "${CORE_BIND_IP:-10.0.0.2}:8000:8000"
     networks: [db, core]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
@@ -115,12 +115,12 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
       KC_HOSTNAME: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}/auth
-      KC_HOSTNAME_ADMIN: http://${CORE_BIND_IP:-10.10.0.2}:8080/auth
+      KC_HOSTNAME_ADMIN: http://localhost:8080/auth   # admin console via ssh -L 8080:10.0.0.2:8080 (ADR-0026)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in the Portainer stack environment}
       WEB_BFF_CLIENT_SECRET_FILE: /run/secrets/web_bff_client_secret
     secrets: [keycloak_db_password, keycloak_admin_password, web_bff_client_secret, app_google_client_secret]
     ports:
-      - "${CORE_BIND_IP:-10.10.0.2}:8080:8080"
+      - "${CORE_BIND_IP:-10.0.0.2}:8080:8080"
     networks: [db, core]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m

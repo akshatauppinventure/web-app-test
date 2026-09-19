@@ -12,12 +12,12 @@ describe("apiFetch (ADR-0011 §2: server-side calls with a bearer token)", () =>
   it("calls API_BASE_URL + path with Authorization: Bearer and no cookies", async () => {
     const fetchImpl = vi.fn(async () => okResponse({ message: "hi" }));
     const out = await apiFetch<{ message: string }>("/v1/hello", "tok-123", {
-      baseUrl: "http://10.10.0.2:8000",
+      baseUrl: "http://10.0.0.2:8000",
       fetchImpl,
     });
     expect(out).toEqual({ message: "hi" });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("http://10.10.0.2:8000/v1/hello");
+    expect(url).toBe("http://10.0.0.2:8000/v1/hello");
     const headers = new Headers(init.headers);
     expect(headers.get("authorization")).toBe("Bearer tok-123");
     expect(headers.get("accept")).toBe("application/json");

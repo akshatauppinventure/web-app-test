@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Provider-module contract (ADR-0002 §2, ADR-0025): every module under infra/tofu/<provider> must expose
 # the same variables and outputs as the reference module (infra/tofu/upcloud), so the same tfvars and the
-# same downstream steps (cloud-init render, peers.yaml, DuckDNS) work whichever provider is used.
+# same downstream steps (cloud-init render, SSH config, DuckDNS) work whichever provider is used.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT/infra/tofu"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 REQUIRED_VARIABLES="zone template_name edge_plan core_plan admin_user admin_ssh_public_key
 cloud_init_edge_path cloud_init_core_path private_network_cidr edge_private_ip core_private_ip
-hostname_prefix labels wireguard_port"
+hostname_prefix labels admin_ssh_cidrs"
 REQUIRED_OUTPUTS="public_ipv4 private_ipv4 server_ids firewall_rule_counts"
 MODULES=$(find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' | sed 's#^\./##' | sort)
 [ -n "$MODULES" ] || fail "no modules under infra/tofu"

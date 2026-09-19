@@ -1,5 +1,5 @@
-# vRack private network + subnet (ADR-0002 §2, ADR-0025): carries only the WireGuard tunnel between A
-# and B. No gateway on the subnet, so the public interface stays the default route (same intent as
+# vRack private network + subnet (ADR-0002 §2, ADR-0025): carries Keycloak/FastAPI and Portainer Agent
+# traffic between A and B (ADR-0026). No gateway on the subnet, so the public interface stays the default route (same intent as
 # UpCloud's dhcp_default_route = false). OVH requires the vrack network type and a VLAN id; new Public
 # Cloud projects come with a vRack, older ones must activate it once in the control panel (P15).
 resource "openstack_networking_network_v2" "private" {

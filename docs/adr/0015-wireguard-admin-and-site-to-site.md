@@ -1,6 +1,6 @@
 # ADR-0015: WireGuard for admin access and site-to-site traffic
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Superseded by ADR-0026 (2026-09-19; WireGuard removed from the POC, restoring it is production-hardening item 1)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0002, ADR-0003, ADR-0006, ADR-0014

@@ -1,6 +1,6 @@
 # ADR-0008: Backend: FastAPI on Python 3.14
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0009, ADR-0011, ADR-0019, ADR-0020

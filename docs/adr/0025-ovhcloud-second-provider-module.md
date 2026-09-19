@@ -1,6 +1,6 @@
 # ADR-0025: OVHcloud Public Cloud as the second provider module
 
-- **Status:** Accepted (2026-09-16)
+- **Status:** Accepted (2026-09-16); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-16
 - **Deciders:** Project owner
 - **Related:** ADR-0002, ADR-0004, ADR-0014, ADR-0015, ADR-0016, ADR-0020

@@ -1,6 +1,6 @@
 # ADR-0004: Host OS: Ubuntu Server 26.04 LTS
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0005, ADR-0014, ADR-0020

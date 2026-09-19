@@ -8,12 +8,14 @@ locals {
     edge = [
       { name = "http", comment = "HTTP to Traefik (ACME + redirect)", protocol = "tcp", port = 80 },
       { name = "https", comment = "HTTPS to Traefik", protocol = "tcp", port = 443 },
-      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = var.wireguard_port },
     ]
-    core = [
-      { name = "wireguard", comment = "WireGuard", protocol = "udp", port = var.wireguard_port },
-    ]
+    core = []
   }
+
+  # Admin SSH (keys only) from the allowed sources, both servers (ADR-0026)
+  ssh_rules = [
+    for i, c in var.admin_ssh_cidrs : { name = "ssh-${i}", comment = "SSH from ${c}", direction = "ingress", protocol = "tcp", port = 22, remote = c }
+  ]
 
   common_rules = [
     { name = "icmp-echo", comment = "ICMP echo request", direction = "ingress", protocol = "icmp", port = 8, remote = "0.0.0.0/0" },
@@ -26,7 +28,7 @@ locals {
       { for r in local.service_rules[role] : "${role}-${r.name}" => {
         role = role, comment = r.comment, direction = "ingress", protocol = r.protocol, port = r.port, remote = "0.0.0.0/0"
       } },
-      { for r in local.common_rules : "${role}-${r.name}" => merge(r, { role = role }) },
+      { for r in concat(local.common_rules, local.ssh_rules) : "${role}-${r.name}" => merge(r, { role = role }) },
     )
   ]...)
 }

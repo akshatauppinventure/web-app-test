@@ -35,4 +35,4 @@ make backend-image        # docker build with GIT_SHA/BUILD_DATE labels
 make backend-image-test   # hardening checks (scripts/test/backend-image.sh)
 ```
 
-Runtime: uid 10001, `/app/.venv` + `alembic/` only, no uv/pip; `CMD uvicorn app.main:app --proxy-headers`. Set `FORWARDED_ALLOW_IPS` to the proxy's WireGuard IP. The same image runs migrations: `docker run --rm -e DATABASE_URL=… <image> alembic upgrade head`.
+Runtime: uid 10001, `/app/.venv` + `alembic/` only, no uv/pip; `CMD uvicorn app.main:app --proxy-headers`. Set `FORWARDED_ALLOW_IPS` to the proxy's private-network IP (`10.0.0.11` in the POC). The same image runs migrations: `docker run --rm -e DATABASE_URL=… <image> alembic upgrade head`.

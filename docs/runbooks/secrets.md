@@ -1,7 +1,7 @@
 # Runbook: secrets (ADR-0016)
 
 **Purpose:** create, encrypt, deliver and rotate deployment secrets with SOPS + age. Servers never hold age keys; values never enter git in clear, Portainer, or CI.
-**Prerequisites:** `sops`, `age`, `jq`, `openssl`, `wireguard-tools` (`brew install sops age jq wireguard-tools`), WireGuard access to the hosts (T20).
+**Prerequisites:** `sops`, `age`, `jq`, `openssl` (`brew install sops age jq`), SSH access to the hosts through the `webapptest-edge` / `webapptest-core` aliases in `~/.ssh/config` (T20, `docs/runbooks/provisioning.md`).
 **Last tested:** 2026-09-15 (round trip with a throwaway key, `make secrets-check`).
 
 ## 1. One-time: admin age key (owner prerequisite P5)
@@ -22,16 +22,16 @@ $EDITOR <tmp>/edge.yaml     # CrowdSec enrollment key (console) or leave "unset"
 make secrets-encrypt SRC=<tmp>   # sops --encrypt -> infra/secrets/{edge,core}.sops.yaml, then shreds the plaintext
 git add infra/secrets/*.sops.yaml && git commit -m "secrets: initial encrypted values"
 ```
-`gen-secrets.sh` keeps the values that both hosts must share identical (`web_bff_client_secret`, `portainer_agent_secret`, the A↔B WireGuard PSK). Copy `restic_password` and `portainer_admin_password` into the password manager.
+`gen-secrets.sh` keeps the values that both hosts must share identical (`web_bff_client_secret`, `portainer_agent_secret`). Copy `restic_password` and `portainer_admin_password` into the password manager.
 
 ## 3. Delivery
 
 ```bash
-make secrets-push HOST=core       # sops -d -> ssh admin@10.10.0.2 -> /etc/app/secrets/<name> (0400, container UID)
-make secrets-push HOST=edge       # WireGuard PSKs go to /etc/wireguard/psk-<peer> (0600 root)
+make secrets-push HOST=core       # sops -d -> ssh webapptest-core -> /etc/app/secrets/<name> (0400, container UID)
+make secrets-push HOST=edge       # same for edge (ssh webapptest-edge)
 make secrets-push HOST=core DRY=1 # prints destinations only
 ```
-Then restart what consumes the changed secret (`docker compose ... up -d` from Portainer, or `wg syncconf` for PSKs). `scripts/secrets/audit-hosts.sh` (T21) verifies owners and modes on the hosts.
+Then restart what consumes the changed secret (`docker compose ... up -d` from Portainer). `scripts/secrets/audit-hosts.sh` (T21) verifies owners and modes on the hosts.
 
 ## 4. Editing and rotation
 

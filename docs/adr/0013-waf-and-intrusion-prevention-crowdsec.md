@@ -1,6 +1,6 @@
 # ADR-0013: WAF and intrusion prevention: CrowdSec
 
-- **Status:** Accepted (2026-09-15)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (SSH is public, allowlist is the private network 10.0.0.0/24)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0010, ADR-0012, ADR-0014, ADR-0023

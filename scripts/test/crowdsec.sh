@@ -28,9 +28,9 @@ nrules="$(cscli appsec-rules list -o json | jq '[.["appsec-rules"][] | select(.s
 [[ "$nrules" -gt 10 ]] || fail "only $nrules appsec rules enabled"
 pass "appsec config poc/appsec-detect active with $nrules rules"
 
-# 2. allowlist for the WireGuard network is loaded as a parser whitelist
-cscli parsers list -o json | jq -e '.parsers[] | select(.name=="poc/wireguard-allowlist" and (.status|startswith("enabled")))' >/dev/null || fail "wireguard allowlist parser not loaded"
-pass "WireGuard allowlist parser loaded"
+# 2. allowlist for the private network is loaded as a parser whitelist
+cscli parsers list -o json | jq -e '.parsers[] | select(.name=="poc/private-network-allowlist" and (.status|startswith("enabled")))' >/dev/null || fail "private-network allowlist parser not loaded"
+pass "private-network allowlist parser loaded"
 
 # 3. a manual decision is enforced by the Traefik plugin (stream mode)
 [[ "$(code -H "X-Forwarded-For: $BANNED_IP" "$BASE/")" == "200" ]] || fail "pre-check: request should pass before the ban"
