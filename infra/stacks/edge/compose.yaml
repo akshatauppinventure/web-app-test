@@ -86,7 +86,7 @@ services:
 
   frontend:
     <<: *hardening
-    image: ghcr.io/akshatauppinventure/frontend:sha-646d5277fa0a148f4936437b291384b7d55441a0@sha256:0dc6f1ff8ea88c3814022fefeca3492222ed5f85cb691c74ca41128a680ce5f0
+    image: ghcr.io/akshatauppinventure/frontend:sha-939bd4eff9ce6d3236e11b3d5b760c1611d719ff@sha256:f6c990a39c604f84c60cd41fed55945e2af629eaa3b06c36adfa2b4d200424f7
     user: "1000:1000"
     environment:
       AUTH_URL: https://${PUBLIC_HOST:-test-vinayak.duckdns.org}
