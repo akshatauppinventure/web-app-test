@@ -169,7 +169,7 @@ jobs:
         run: python3 scripts/ci/check-hardening.py
       - name: Host configuration (cloud-init schema, nftables, sshd, DOCKER-USER rules)
         run: scripts/test/host-config.sh
-      - name: Host bootstrap (render validation, no WireGuard, interface detection, boot report)
+      - name: Host bootstrap (render validation, interface detection, boot report)
         run: scripts/test/host-bootstrap.sh
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:

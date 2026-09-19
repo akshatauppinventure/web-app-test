@@ -1,6 +1,6 @@
 # ADR-0016: Secrets management: SOPS + age
 
-- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (WireGuard pre-shared keys removed)
+- **Status:** Accepted (2026-09-15); amended by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md) (tunnel pre-shared keys removed)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0006, ADR-0015, ADR-0017, ADR-0018

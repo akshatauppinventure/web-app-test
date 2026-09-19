@@ -1,6 +1,6 @@
 # ADR-0012: Reverse proxy: Traefik with the file provider
 
-- **Status:** Accepted (2026-09-15); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
+- **Status:** Accepted (2026-09-15); access model superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0003, ADR-0010, ADR-0013, ADR-0014, ADR-0022, ADR-0023

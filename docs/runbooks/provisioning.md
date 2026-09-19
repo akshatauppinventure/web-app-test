@@ -1,14 +1,14 @@
 # Provisioning both VPS (T20)
 
-**Purpose:** create VPS-A "edge" and VPS-B "core" from `infra/tofu/<provider>` with the first-boot configuration from `infra/host`, reach both over key-only SSH, and record the host baseline. ADRs 0002, 0004, 0014, 0026 (WireGuard removed from the POC; restoring it is item 1 of [`docs/production-hardening.md`](../production-hardening.md)).
+**Purpose:** create VPS-A "edge" and VPS-B "core" from `infra/tofu/<provider>` with the first-boot configuration from `infra/host`, reach both over key-only SSH, and record the host baseline. ADRs 0002, 0004, 0014, 0026. Adding a VPN back is item 1 of [`docs/production-hardening.md`](../production-hardening.md).
 
 **Prerequisites:** P5 (age key, `infra/secrets/*.sops.yaml`), P6 (`~/.config/upcloud/token` **and the account out of trial mode**: the trial firewall is fixed and stateless, so `apt` hangs and cloud-init never finishes), `brew install opentofu sops age jq`, the laptop's SSH key in `~/.ssh/id_ed25519.pub`.
 
-**Last tested:** 2026-09-17 with the WireGuard design (UpCloud `us-nyc1`); not yet run with the ADR-0026 design.
+**Last tested:** 2026-09-17 with the pre-ADR-0026 design (UpCloud `us-nyc1`). The ADR-0026 design is rendered and planned but not yet applied.
 
-## 0. Servers created with the WireGuard design (2026-09-17)
+## 0. Servers created before ADR-0026 (2026-09-17)
 
-The two servers created on 2026-09-17 accept SSH only on a WireGuard address that no longer exists in this repository. OpenTofu ignores `user_data` changes, so a plain `tofu apply` would only update their firewall rules. Destroy them first, then continue with step 1:
+The two servers created on 2026-09-17 accept SSH only on a tunnel address that no longer exists in this repository. OpenTofu ignores `user_data` changes, so a plain `tofu apply` would only update their firewall rules. Destroy them first, then continue with step 1:
 
 ```bash
 export UPCLOUD_TOKEN="$(cat ~/.config/upcloud/token)"
@@ -16,7 +16,7 @@ cd infra/tofu/upcloud && tofu destroy     # review: 2 servers, network, router, 
 rm -P ../../../.tofu-rendered/*.bootstrap.key 2>/dev/null; rm -f ../../../.tofu-rendered/*   # old bootstrap keys and renders
 ```
 
-Laptop leftovers from the WireGuard design (`~/.config/wireguard/`) are unused and can be deleted.
+Laptop leftovers from that design (`~/.config/wireguard/`) are unused and can be deleted.
 
 ## 1. Render cloud-init
 

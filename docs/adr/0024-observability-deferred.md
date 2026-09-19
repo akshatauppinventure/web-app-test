@@ -1,6 +1,6 @@
 # ADR-0024: Observability (minimal for POC, full stack deferred)
 
-- **Status:** Accepted (2026-09-15); WireGuard references superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
+- **Status:** Accepted (2026-09-15); access model superseded by [ADR-0026](0026-remove-wireguard-public-ssh-private-network.md)
 - **Date:** 2026-09-14
 - **Deciders:** Project owner
 - **Related:** ADR-0005, ADR-0006, ADR-0013, ADR-0015, ADR-0021

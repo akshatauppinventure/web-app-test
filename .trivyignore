@@ -4,7 +4,11 @@
 
 # keycloak (quay.io/keycloak/keycloak:26.7.3, latest release on 2026-09-16): bundled jars, no upstream fix yet.
 CVE-2025-59250 exp:2026-10-14   # keycloak: mssql-jdbc driver is bundled but unused (Postgres only); drop when 26.7.4/26.8 ships
-CVE-2026-75595 exp:2026-10-14   # keycloak: netty-handler in Quarkus; only reachable behind Traefik on WireGuard; re-check every release (ADR-0020 SLA)
+CVE-2026-75595 exp:2026-10-14   # keycloak: netty-handler in Quarkus; only reachable behind Traefik and from edge's private address; re-check every release (ADR-0020 SLA)
+# bouncycastle bcprov 1.84 is bundled by upstream Keycloak; 26.7.4 (2026-09-16, newest) still ships 1.84, the fix is 1.85.
+# Verified 2026-09-19 by listing the jars in quay.io/keycloak/keycloak:26.7.4. Re-check at every Keycloak release.
+CVE-2026-8763 exp:2026-10-14    # keycloak: org.bouncycastle:bcprov-jdk18on 1.84, no upstream release with 1.85 yet
+CVE-2026-13506 exp:2026-10-14   # keycloak: org.bouncycastle:bcprov-jdk18on 1.84, denial of service, same
 # crowdsec (crowdsecurity/crowdsec:v1.8.1, latest release on 2026-09-16): Go modules compiled into the upstream binary.
 CVE-2026-84304 exp:2026-10-14   # crowdsec: google.golang.org/grpc; LAPI is edge-network only; re-check at v1.8.2
 CVE-2026-84445 exp:2026-10-14   # crowdsec: google.golang.org/grpc; same

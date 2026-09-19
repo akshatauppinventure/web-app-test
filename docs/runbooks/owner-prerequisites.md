@@ -2,7 +2,7 @@
 
 **Purpose:** everything only the owner can do to unblock the remaining PLAN tasks, in the order that unblocks the most. Each item says what to click, what to run, where the value goes, how to verify, and which task it unblocks. Nothing here is committed in clear: values marked **secret** go into SOPS files or a password manager.
 **Prerequisites:** a laptop with `gh`, `docker`, `make`, `jq`, `openssl`, `age`, `sops` (`brew install gh age sops jq`).
-**Last updated:** 2026-09-19 (WireGuard removed from the POC by ADR-0026, so P7 is no longer needed; T20 re-provisions with public key-only SSH).
+**Last updated:** 2026-09-19 (ADR-0026 replaced the access model, so P7 is withdrawn; T20 re-provisions with public key-only SSH).
 
 ## Checklist (do in this order)
 
@@ -15,7 +15,7 @@
 | P3 | GHCR packages private — **done** (CI enforces it on every publish) | ADR-0017 §5, T13 | — |
 | P2 | Google OAuth client "local" | Google sign-in on the local stack (T09) | 10 min |
 | P5 | Generate the admin age key, encrypt the secrets files — **done** (5 owner values still `CHANGE_ME`: P9, P10, CrowdSec enrollment) | T19 completion, T20–T22 | — |
-| P7 | ~~WireGuard key pair on the laptop~~ — **no longer needed** (ADR-0026; restoring WireGuard is production-hardening item 1) | — | — |
+| P7 | *(withdrawn 2026-09-19, ADR-0026: the admin VPN key pair is no longer used)* | — | — |
 | P6 | UpCloud account, payment method, API token — **done** (token in `~/.config/upcloud/token`, mode 600) | T18 plan, T20 apply (billing starts) | — |
 | P8 | DuckDNS record → VPS-A public IP | T22 | 2 min (after T20) |
 | P9 | Google OAuth client "poc" | T22 | 5 min |
@@ -135,11 +135,11 @@ The deploy bot must open PRs with an **installation token** so required checks r
 4. Verify: `sops -d infra/secrets/core.sops.yaml | head -3` decrypts on your laptop (on macOS sops looks in `~/Library/Application Support/sops/age/keys.txt`, so either move the file there or `export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt` in your shell profile); `make secrets-check` passes; `git grep -n 'ENC\[AES256_GCM' infra/secrets | head -1` shows encrypted values.
 5. Values you fill later (P9, P10, CrowdSec enrollment): `sops infra/secrets/core.sops.yaml` opens the file decrypted in `$EDITOR` and re-encrypts on save.
 
-## P7 · WireGuard key pair on the laptop — **no longer needed** (2026-09-19, ADR-0026)
+## P7 · ~~Admin VPN key pair on the laptop~~ — **withdrawn 2026-09-19 (ADR-0026)**
 
-WireGuard was removed from the POC. The laptop key pair in `~/.config/wireguard/` is unused and can be deleted; nothing in the repository references it any more. Restoring a VPN is item 1 of [`docs/production-hardening.md`](../production-hardening.md), which will need a fresh key pair.
+The admin VPN key pair on the laptop (`~/.config/wireguard/`) is no longer used by anything in this repository and can be deleted. Adding a VPN back is item 1 of [`docs/production-hardening.md`](../production-hardening.md) and will need a fresh key pair.
 
-Instead, T20 needs only your SSH key (`~/.ssh/id_ed25519.pub`) and, optionally, your current public IPv4 address to narrow SSH access (`curl -4 -s https://ifconfig.me`).
+T20 needs only your SSH key (`~/.ssh/id_ed25519.pub`) and, optionally, your current public IPv4 address to narrow SSH access (`curl -4 -s https://ifconfig.me`).
 
 ## P6 · UpCloud account and API token — **done 2026-09-17**, plus the trial exit (deposit) needed by T20
 

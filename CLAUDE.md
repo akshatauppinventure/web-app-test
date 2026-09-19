@@ -6,7 +6,7 @@ Read this first. `PLAN.md` is the roadmap (tasks T00–T25); `docs/adr/` holds t
 
 - GitHub repo: `akshatauppinventure/web-app-test` (private). Default branch `main`. Rulesets are unavailable on this private repo under the Free plan (owner decision P12 pending); protection is process-only: never push to `main` directly, always PR.
 - POC hostname: `test-vinayak.duckdns.org` (DuckDNS, Let's Encrypt HTTP-01). No custom domain, Cloudflare or Apple login in the POC.
-- Hosting target: UpCloud `us-nyc1`, two Ubuntu 26.04 VPS: A "edge" (Traefik, CrowdSec, frontend) and B "core" (Keycloak, backend, PostgreSQL, Portainer Server). Private network `10.0.0.11` (A) / `10.0.0.2` (B); admin SSH is public and key-only on both. **No WireGuard in the POC** (ADR-0026); restoring it is production-hardening item 1.
+- Hosting target: UpCloud `us-nyc1`, two Ubuntu 26.04 VPS: A "edge" (Traefik, CrowdSec, frontend) and B "core" (Keycloak, backend, PostgreSQL, Portainer Server). Private network `10.0.0.11` (A) / `10.0.0.2` (B); admin SSH is public and key-only on both (ADR-0026). **No VPN in the POC**; adding one is production-hardening item 1.
 - Owner-only prerequisites (accounts, tokens, purchases) are listed in `PLAN.md` § "Owner prerequisites". Never fake them; stop and report when one is missing.
 
 ## How work is done
@@ -93,7 +93,7 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 - The committed scripts/units/configs are the source of truth; `scripts/render-cloud-init.sh` embeds them into the cloud-init templates at render time. Never edit rendered output by hand.
 - Placeholders are `__UPPER_SNAKE__`; the render script fails if any remain, if `EDGE_PRIVATE_IP`/`CORE_PRIVATE_IP` are not distinct IPv4 addresses, or if an `ADMIN_SSH_CIDRS` entry is not an IPv4 CIDR. `PUBLIC_IF=auto` is resolved from the default route at first boot (`scripts/resolve-public-if.sh`).
 - Access (ADR-0026): sshd listens on all addresses (keys only, `AllowUsers admin`); nftables accepts TCP 22 on the public interface only from `ADMIN_SSH_CIDRS`, rate-limited per source; the provider firewall uses the same list as `admin_ssh_cidrs` (both modules, 1–5 CIDRs, default `0.0.0.0/0`). Admin UIs go through `ssh -L` (Portainer `127.0.0.1:9443`, Keycloak `10.0.0.2:8080`); the SSH aliases `webapptest-edge` / `webapptest-core` in `~/.ssh/config` are what `secrets-push.sh` targets by default.
-- Site-to-site traffic uses the private network in plain HTTP: `DOCKER-USER` allows 8080/8000 on core and 9001 on edge only from `PEER_IP` and never via the public interface. Tests: `scripts/test/host-config.sh`, `scripts/test/host-bootstrap.sh`; both assert that no WireGuard remnant comes back.
+- Site-to-site traffic uses the private network in plain HTTP: `DOCKER-USER` allows 8080/8000 on core and 9001 on edge only from `PEER_IP` and never via the public interface. Tests: `scripts/test/host-config.sh`, `scripts/test/host-bootstrap.sh`; both assert that the pre-ADR-0026 tunnel configuration does not come back.
 - Host scripts read secrets from `/etc/app/secrets/<name>` and role settings from `/etc/app/host.env` (`HOST_ROLE`, `PEER_IP` = the other host's private address, `PUBLIC_HOST`, `PUBLIC_IF`, `NOTIFY_WEBHOOK_URL`).
 - Validation runs in `ubuntu:26.04` containers (`nft -c` needs `--privileged`; macOS `sed` has no `\|`, so use Python for multi-key substitutions in tests).
 
@@ -171,10 +171,10 @@ Targets are added to the `Makefile` as tasks land; `make help` lists them. Until
 | T14 Traefik image and configuration | done | #12 |
 | T15 CrowdSec engine, bouncer, AppSec (detect-only) | done | #13 |
 | T16 GitOps stacks (edge, core) + policy checks | done | #14 |
-| T17 Host configuration (cloud-init, nftables, Docker, timers) | done; WireGuard removed by ADR-0026 | #15 |
+| T17 Host configuration (cloud-init, nftables, Docker, timers) | done; access model replaced by ADR-0026 | #15 |
 | T18 OpenTofu module for UpCloud | done (plan/apply need owner P6) | #17 |
 | T19 Secrets tooling (SOPS + age) | done; P5 done, `infra/secrets/*.sops.yaml` committed (P9/P10/CrowdSec values still `CHANGE_ME`) | #16, #47 |
 | T13 deploy-PR bot + digest verification | done; six deploy PRs #39–#44 verified and auto-merged, negative PR #38 failed at cosign verify | #36, #37, #45 |
 | T26 OpenTofu module for OVHcloud (second provider, contract test) | done (live plan/apply when the OVH POC starts, P15) | #48 |
-| T20 Provision both VPS | in progress: servers created 2026-09-17 with WireGuard, then WireGuard removed (ADR-0026); destroy and re-provision next | #51, #53, #55, #56, this PR |
+| T20 Provision both VPS | in progress: access model replaced (ADR-0026); servers re-provisioned from the current configuration | #51, #53, #55, #56, #57 |
 | T21–T25 | not started | — |

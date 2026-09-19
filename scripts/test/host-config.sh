@@ -38,7 +38,7 @@ apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get insta
 for role in edge core; do
   nft -c -f /t/$role.nft && nft -c -f /t/$role-default.nft && echo "ok: nftables syntax $role (allowlist and default 0.0.0.0/0)"
   grep -q "ip saddr \$ADMIN_SSH_SOURCES tcp dport 22 ct state new add @ssh_rate" /t/$role.nft || { echo "SSH rule missing on $role"; exit 1; }
-  ! grep -qiE "wg0|udp dport" /t/$role.nft || { echo "$role nftables still opens a WireGuard/UDP port"; exit 1; }
+  ! grep -qiE "wg0|udp dport" /t/$role.nft || { echo "$role nftables still opens a tunnel/UDP port"; exit 1; }
 done
 echo "ok: nftables accept SSH only from ADMIN_SSH_SOURCES with a per-source rate limit, no UDP service ports"
 update-alternatives --set iptables /usr/sbin/iptables-nft >/dev/null 2>&1 || true
@@ -50,7 +50,7 @@ for role in edge core; do
   [[ $n -ge 7 ]] || { echo "too few rules for $role: $n"; exit 1; }
   grep -q -- "-i eth0 -m conntrack --ctstate NEW -j DROP" <<<"$rules" || { echo "missing public DROP for $role"; exit 1; }
   grep -qx -- "-A DOCKER-USER -m conntrack --ctstate NEW -j DROP" <<<"$rules" || { echo "missing final DROP for $role"; exit 1; }
-  ! grep -q "wg0\|10.10.0" <<<"$rules" || { echo "$role still references WireGuard"; exit 1; }
+  ! grep -q "wg0\|10.10.0" <<<"$rules" || { echo "$role still references the removed tunnel"; exit 1; }
   echo "ok: DOCKER-USER rules for $role ($n rules, ends with DROP)"
 done
 grep -qE -- "-s 10.0.0.11/32 ! -i eth0 -p tcp .*--ctorigdstport 8000 -j RETURN" <<<"$rules" \

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for the T20 host bootstrap pieces (PLAN T20, ADR-0026): render-time validation of the host
-# variables, the rendered cloud-init (no WireGuard, key-only public SSH, private-network peer),
+# variables, the rendered cloud-init (no tunnel config, key-only public SSH, private-network peer),
 # public-interface detection and the boot report. Runs in ubuntu:26.04 containers like host-config.sh.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT"
@@ -27,11 +27,11 @@ bad "a prefix above /32" 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=198.51.100.0/33#
 bad "an IPv6 CIDR" 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=2001:db8::/32#' ADMIN_SSH_CIDRS
 pass "render rejects malformed private addresses and SSH source CIDRs"
 
-# 2. Rendered cloud-init: no WireGuard, no placeholder, peer address in host.env, boot report wiring.
+# 2. Rendered cloud-init: no pre-ADR-0026 tunnel config, no placeholder, peer address in host.env, boot report wiring.
 for role in edge core; do
   $R "$role" scripts/test/host-vars.example "$OUT/$role.yaml"
   y="$(cat "$OUT/$role.yaml")"
-  ! grep -qiE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" || fail "$role: WireGuard remnant in rendered cloud-init: $(grep -niE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" | head -3)"
+  ! grep -qiE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" || fail "$role: pre-ADR-0026 tunnel remnant in rendered cloud-init: $(grep -niE 'wireguard|wg0|wg-quick|10\.10\.0\.|psk' <<<"$y" | head -3)"
   ! grep -q '__[A-Z_]*__' <<<"$y" || fail "$role: placeholder left in rendered cloud-init"
   peer=$([[ $role == edge ]] && echo 10.0.0.2 || echo 10.0.0.11)
   grep -q "^ *PEER_IP=$peer$" <<<"$y" || fail "$role: host.env PEER_IP is not the peer private address $peer"
@@ -44,7 +44,7 @@ for role in edge core; do
 done
 grep -q '"127.0.0.1:9443:9443"' "$OUT/core.yaml" || fail "core: Portainer Server must publish on 127.0.0.1 only"
 grep -q '"10.0.0.11:9001:9001"' "$OUT/edge.yaml" || fail "edge: Portainer Agent must publish on the edge private address"
-pass "rendered cloud-init has no WireGuard, sets PEER_IP, binds Portainer to loopback/private addresses"
+pass "rendered cloud-init has no tunnel config, sets PEER_IP, binds Portainer to loopback/private addresses"
 
 # 3. ADMIN_SSH_CIDRS: a comma-separated list renders into the nftables set; private addresses override.
 sed -e 's#^ADMIN_SSH_CIDRS=.*#ADMIN_SSH_CIDRS=198.51.100.0/24,203.0.113.7/32#' -e 's/^CORE_PRIVATE_IP=.*/CORE_PRIVATE_IP=10.0.0.3/' scripts/test/host-vars.example > "$OUT/cidr.vars"
@@ -72,7 +72,7 @@ apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get insta
 BOOT_REPORT_OUT=/t/boot-report.txt BOOT_REPORT_LOG=/t/boot-report.log /s/boot-report.sh
 grep -q "busy:" /t/boot-report.txt && grep -q "cloud-init-output tail:" /t/boot-report.txt || { echo "report misses the activity sections"; exit 1; }
 grep -q "sshd:" /t/boot-report.txt && grep -q "peer (private network):" /t/boot-report.txt || { echo "report misses the sshd/peer sections"; exit 1; }
-! grep -qi "wg-quick\|wireguard" /t/boot-report.txt || { echo "report still mentions WireGuard"; exit 1; }
+! grep -qi "wg-quick\|wireguard" /t/boot-report.txt || { echo "boot report still mentions the removed tunnel"; exit 1; }
 # --loop exits immediately when cloud-init reports done (stub), after one report
 mkdir -p /t/bin && printf "#!/bin/sh\necho status: done\n" > /t/bin/cloud-init && chmod +x /t/bin/cloud-init
 PATH=/t/bin:$PATH BOOT_REPORT_OUT=/t/loop.txt BOOT_REPORT_LOG=/t/loop.log timeout 20 /s/boot-report.sh --loop || { echo "loop did not exit on done"; exit 1; }

@@ -4,7 +4,7 @@ A proof-of-concept "hello world" web application deployed on two hardened UpClou
 
 - **Edge VPS (A):** Traefik (TLS, routing, rate limits), CrowdSec (IPS/WAF), Next.js frontend (Auth.js BFF).
 - **Core VPS (B):** Keycloak (identity, Google login), FastAPI backend (JWT validation), PostgreSQL 18 (Row-Level Security), Portainer Server (GitOps deploys).
-- Hosts talk over the provider's **private network**; public ports are 80/443 on the edge host and key-only SSH on both (ADR-0026). WireGuard is on the [production-hardening list](docs/production-hardening.md).
+- Hosts talk over the provider's **private network**; public ports are 80/443 on the edge host and key-only SSH on both (ADR-0026). A VPN for admin traffic is item 1 of the [production-hardening list](docs/production-hardening.md).
 - POC hostname: **`https://test-vinayak.duckdns.org`**.
 
 ## Where to look

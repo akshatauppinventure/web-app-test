@@ -1,6 +1,6 @@
 # Never ban the private network between the two servers (ADR-0013 §7, ADR-0026). Installed as a parser
-# whitelist in s02-enrich so decisions are never created for these sources. Admin SSH comes from the
-# internet since WireGuard was removed; add the admin's address here only together with ADMIN_SSH_CIDRS.
+# whitelist in s02-enrich so decisions are never created for these sources. Admin SSH now comes from the
+# internet, so add the admin's address here only together with ADMIN_SSH_CIDRS.
 name: poc/private-network-allowlist
 description: "Allowlist the provider private network (edge and core hosts)"
 whitelist:

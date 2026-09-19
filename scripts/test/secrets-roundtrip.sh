@@ -38,7 +38,7 @@ pass "encrypt/decrypt round trip for edge and core with a throwaway age key"
 pass "shared values consistent across hosts (--shared-from)"
 out="$(SOPS_CONFIG="$work/sops.yaml" SECRETS_FILE="$work/core.sops.yaml" scripts/secrets/secrets-push.sh core --dry-run)"
 grep -q "restic_password -> /etc/app/secrets/restic_password (owner 0, mode 0400)" <<<"$out" || fail "dry run output unexpected: $out"
-! grep -qi "wireguard" <<<"$out" || fail "dry run still lists WireGuard secrets"
+! grep -qi "wireguard" <<<"$out" || fail "dry run still lists removed tunnel secrets"
 grep -q "would push core secrets to webapptest-core" <<<"$out" || fail "default SSH target is not the webapptest-core alias: $out"
 grep -qE '[A-Za-z0-9]{40}' <<<"$out" && fail "dry run printed a value" || true
 pass "secrets-push --dry-run prints destinations and modes only"

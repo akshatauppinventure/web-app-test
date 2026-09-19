@@ -1,8 +1,9 @@
 # Host configuration (ADR-0004, 0005, 0006, 0014, 0021, 0024, 0026)
 
 Everything a VPS needs beyond Docker stacks: first-boot cloud-init, host firewall,
-Docker daemon hardening, Portainer bootstrap, health/backup timers. WireGuard was removed from the POC
-(ADR-0026); restoring it is item 1 of [`docs/production-hardening.md`](../../docs/production-hardening.md).
+Docker daemon hardening, Portainer bootstrap, health/backup timers. Access follows ADR-0026: key-only
+public SSH, private-network links between the hosts, admin UIs through `ssh -L`. A VPN for admin traffic is
+item 1 of [`docs/production-hardening.md`](../../docs/production-hardening.md).
 
 | Path | Purpose |
 |---|---|
