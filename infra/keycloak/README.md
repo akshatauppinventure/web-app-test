@@ -31,7 +31,7 @@ The container needs writable `tmpfs` at `/tmp`, `/opt/keycloak/data/tmp` and `/o
 
 **Import** happens automatically on first start (`start --optimized --import-realm`); an existing realm is left untouched (`IGNORE_EXISTING`). To re-import after editing the JSON on a dev machine: `make test-db-down` (drops the volume) and start again.
 
-**Export after changes made in the admin console** (on VPS-B over SSH, or locally):
+**Export after changes made in the admin console** (over WireGuard on VPS-B, or locally):
 
 ```bash
 docker compose exec -u 1000 keycloak /opt/keycloak/bin/kc.sh export --dir /tmp/export --realm app --users skip
